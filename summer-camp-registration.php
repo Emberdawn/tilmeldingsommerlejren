@@ -112,12 +112,49 @@ class SommerlejrTilmeldingPlugin
                 }
 
                 const fileInput = form.find("input[name=\"transfer_screenshot\"]");
+                const adultsInput = form.find("input[name=\"adults\"]");
+                const childrenInput = form.find("input[name=\"children\"]");
+                const dayTicketsInput = form.find("input[name=\"day_tickets\"]");
+                const totalValue = form.find(".js-total-price-value");
                 const previewWrap = form.find(".js-file-preview");
                 const previewImage = form.find(".js-file-preview-image");
                 const previewName = form.find(".js-file-preview-name");
                 const progressWrap = form.find(".js-upload-progress-wrap");
                 const progressBar = form.find(".js-upload-progress");
                 const progressLabel = form.find(".js-upload-progress-label");
+                const adultPrice = Number(form.data("adult-price")) || 0;
+                const childPrice = Number(form.data("child-price")) || 0;
+                const dayTicketPrice = Number(form.data("day-ticket-price")) || 0;
+
+                function toNumber(input){
+                    if (!input.length) {
+                        return 0;
+                    }
+
+                    const parsed = parseInt(input.val(), 10);
+                    return Number.isNaN(parsed) ? 0 : parsed;
+                }
+
+                function updateTotalPrice(){
+                    if (!totalValue.length) {
+                        return;
+                    }
+
+                    const adults = toNumber(adultsInput);
+                    const children = toNumber(childrenInput);
+                    const dayTickets = toNumber(dayTicketsInput);
+                    const total = (adults * adultPrice) + (children * childPrice) + (dayTickets * dayTicketPrice);
+
+                    totalValue.text(total.toLocaleString("da-DK", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }));
+                }
+
+                adultsInput.on("input change", updateTotalPrice);
+                childrenInput.on("input change", updateTotalPrice);
+                dayTicketsInput.on("input change", updateTotalPrice);
+                updateTotalPrice();
 
                 fileInput.on("change", function(){
                     const file = this.files && this.files[0] ? this.files[0] : null;
@@ -335,11 +372,12 @@ class SommerlejrTilmeldingPlugin
         $children = $registration ? (int) $registration->children : 0;
         $dayTickets = $registration ? (int) $registration->day_tickets : 0;
         $total = $this->calculate_total($adults, $children, $dayTickets);
+        $prices = $this->get_prices();
         $status = $registration ? $registration->status : 'draft';
 
         ob_start();
         ?>
-        <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
+        <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;" data-adult-price="<?php echo esc_attr((string) $prices['adult_full']); ?>" data-child-price="<?php echo esc_attr((string) $prices['child_full']); ?>" data-day-ticket-price="<?php echo esc_attr((string) $prices['day_ticket']); ?>">
             <?php wp_nonce_field(self::NONCE_ACTION); ?>
             <h3>Sommerlejr tilmelding</h3>
 
@@ -399,7 +437,7 @@ class SommerlejrTilmeldingPlugin
                 <?php endif; ?>
             <?php endif; ?>
 
-            <p><strong>Samlet pris: <?php echo esc_html(number_format_i18n($total, 2)); ?> kr.</strong></p>
+            <p><strong>Samlet pris: <span class="js-total-price-value"><?php echo esc_html(number_format_i18n($total, 2)); ?></span> kr.</strong></p>
 
             <?php
             $hasRequired = ($adults + $children + $dayTickets) > 0
