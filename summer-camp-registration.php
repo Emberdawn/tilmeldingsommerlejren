@@ -622,7 +622,7 @@ class SommerlejrTilmeldingPlugin
         $this->render_table($rows, true);
         echo '</div>';
 
-        echo '<div id="summer-camp-modal" class="summer-camp-modal" style="display:none;">';
+        echo '<div id="summer-camp-modal" class="summer-camp-modal">';
         echo '<div class="summer-camp-modal-dialog">';
         echo '<span class="close" aria-label="Luk">&times;</span>';
         echo '<div class="summer-camp-modal-toolbar">';
