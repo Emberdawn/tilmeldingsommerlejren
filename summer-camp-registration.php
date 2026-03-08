@@ -179,7 +179,9 @@ class SommerlejrTilmeldingPlugin
                         totalValue.text(formatTotal(total));
                     }
 
-                    form.on("input change keyup click", "input[name=\"adults\"], input[name=\"children\"], input[name=\"day_tickets\"]", updateTotalPrice);
+                    const totalInputsSelector = "input[name=\"adults\"], input[name=\"children\"], input[name=\"day_tickets\"]";
+
+                    form.on("input change keyup blur focusout", totalInputsSelector, updateTotalPrice);
                     $(window).on("pageshow", updateTotalPrice);
                     updateTotalPrice();
 
