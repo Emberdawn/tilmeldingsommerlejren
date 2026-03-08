@@ -204,7 +204,13 @@ class SommerlejrTilmeldingPlugin
 
     public function enqueue_admin_assets(string $hook): void
     {
-        if ($hook !== 'summer-camp_page_summer-camp-pending' && $hook !== 'summerlejr_page_summer-camp-pending') {
+        $isPendingPage = isset($_GET['page']) && sanitize_key((string) $_GET['page']) === 'summer-camp-pending';
+
+        if (
+            $hook !== 'summer-camp_page_summer-camp-pending'
+            && $hook !== 'summerlejr_page_summer-camp-pending'
+            && !$isPendingPage
+        ) {
             return;
         }
 
@@ -616,7 +622,7 @@ class SommerlejrTilmeldingPlugin
         $this->render_table($rows, true);
         echo '</div>';
 
-        echo '<div id="summer-camp-modal" class="summer-camp-modal">';
+        echo '<div id="summer-camp-modal" class="summer-camp-modal" style="display:none;">';
         echo '<div class="summer-camp-modal-dialog">';
         echo '<span class="close" aria-label="Luk">&times;</span>';
         echo '<div class="summer-camp-modal-toolbar">';
