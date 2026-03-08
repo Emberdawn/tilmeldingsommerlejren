@@ -204,15 +204,19 @@ class SommerlejrTilmeldingPlugin
 
     public function enqueue_admin_assets(string $hook): void
     {
-        if ($hook !== 'summerlejr_page_summer-camp-pending') {
+        if ($hook !== 'summer-camp_page_summer-camp-pending' && $hook !== 'summerlejr_page_summer-camp-pending') {
             return;
         }
 
         wp_add_inline_style('wp-admin', '
-            .summer-camp-modal {display:none; position:fixed; z-index:9999; inset:0; background:rgba(0,0,0,.8); align-items:center; justify-content:center;}
+            .summer-camp-modal {display:none; position:fixed; z-index:9999; inset:0; background:rgba(0,0,0,.85); align-items:center; justify-content:center;}
             .summer-camp-modal.active {display:flex;}
-            .summer-camp-modal img {max-width:95vw; max-height:95vh; cursor:zoom-in; transform-origin:center center;}
-            .summer-camp-modal .close {position:absolute; top:20px; right:20px; color:#fff; font-size:32px; cursor:pointer;}
+            .summer-camp-modal-dialog {position:relative; max-width:96vw; max-height:96vh; width:1100px; background:#111; border-radius:8px; padding:16px;}
+            .summer-camp-modal-stage {display:flex; align-items:center; justify-content:center; overflow:auto; max-height:calc(96vh - 90px);}
+            .summer-camp-modal img {max-width:100%; max-height:calc(96vh - 110px); cursor:zoom-in; transform-origin:center center; transition:transform .15s ease-out;}
+            .summer-camp-modal-toolbar {display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;}
+            .summer-camp-modal .button {min-width:42px; text-align:center;}
+            .summer-camp-modal .close {position:absolute; top:6px; right:10px; color:#fff; font-size:30px; cursor:pointer; line-height:1;}
             .summer-camp-proof-thumb {display:inline-block; width:72px; height:72px; border:1px solid #ccd0d4; border-radius:4px; overflow:hidden;}
             .summer-camp-proof-thumb img {width:100%; height:100%; object-fit:cover; display:block;}
         ');
@@ -220,20 +224,57 @@ class SommerlejrTilmeldingPlugin
         wp_add_inline_script('jquery-core', '
             jQuery(function($){
                 let zoom = 1;
+                const minZoom = 1;
+                const maxZoom = 4;
+                const step = 0.25;
+
+                function applyZoom(){
+                    $("#summer-camp-proof-image").css("transform", "scale(" + zoom + ")");
+                }
+
+                function setZoom(nextZoom){
+                    zoom = Math.max(minZoom, Math.min(maxZoom, nextZoom));
+                    applyZoom();
+                }
+
                 $(document).on("click", ".js-open-proof", function(e){
                     e.preventDefault();
                     const src = $(this).data("src");
                     zoom = 1;
-                    $("#summer-camp-proof-image").attr("src", src).css("transform", "scale(1)");
+                    $("#summer-camp-proof-image").attr("src", src);
+                    applyZoom();
+                    $("#summer-camp-proof-open-original").attr("href", src);
                     $("#summer-camp-modal").addClass("active");
                 });
-                $(document).on("click", "#summer-camp-modal, #summer-camp-modal .close", function(){
+
+                $(document).on("click", "#summer-camp-modal", function(e){
+                    if (e.target === this) {
+                        $(this).removeClass("active");
+                    }
+                });
+
+                $(document).on("click", "#summer-camp-modal .close", function(){
                     $("#summer-camp-modal").removeClass("active");
                 });
+
+                $(document).on("click", "#summer-camp-proof-zoom-in", function(){
+                    setZoom(zoom + step);
+                });
+
+                $(document).on("click", "#summer-camp-proof-zoom-out", function(){
+                    setZoom(zoom - step);
+                });
+
                 $(document).on("click", "#summer-camp-proof-image", function(e){
                     e.stopPropagation();
-                    zoom = zoom >= 3 ? 1 : zoom + 0.5;
-                    $(this).css("transform", "scale("+zoom+")");
+                    setZoom(zoom >= maxZoom ? minZoom : zoom + step);
+                });
+
+                $(document).on("wheel", "#summer-camp-proof-image", function(e){
+                    e.preventDefault();
+                    const originalEvent = e.originalEvent || e;
+                    const deltaY = originalEvent.deltaY || 0;
+                    setZoom(zoom + (deltaY < 0 ? step : -step));
                 });
             });
         ');
@@ -564,7 +605,17 @@ class SommerlejrTilmeldingPlugin
         $this->render_table($rows, true);
         echo '</div>';
 
-        echo '<div id="summer-camp-modal" class="summer-camp-modal"><span class="close">&times;</span><img id="summer-camp-proof-image" src="" alt="Proof"/></div>';
+        echo '<div id="summer-camp-modal" class="summer-camp-modal">';
+        echo '<div class="summer-camp-modal-dialog">';
+        echo '<span class="close" aria-label="Luk">&times;</span>';
+        echo '<div class="summer-camp-modal-toolbar">';
+        echo '<a id="summer-camp-proof-open-original" class="button" href="#" target="_blank" rel="noopener noreferrer">Åbn original</a>';
+        echo '<button id="summer-camp-proof-zoom-out" class="button" type="button" aria-label="Zoom ud">-</button>';
+        echo '<button id="summer-camp-proof-zoom-in" class="button" type="button" aria-label="Zoom ind">+</button>';
+        echo '</div>';
+        echo '<div class="summer-camp-modal-stage"><img id="summer-camp-proof-image" src="" alt="Proof"/></div>';
+        echo '</div>';
+        echo '</div>';
     }
 
     private function fetch_registrations(?string $status = null): array
