@@ -70,13 +70,9 @@ class SommerlejrTilmeldingPlugin
     {
         return [
             'adult_full' => 1000,
+            'adult_day' => 200,
             'child_full' => 700,
-            'adult_day_1' => 200,
-            'adult_day_2' => 350,
-            'adult_day_3' => 500,
-            'adult_day_4' => 650,
-            'adult_day_5' => 800,
-            'adult_day_6' => 1000,
+            'child_day' => 120,
         ];
     }
 
@@ -152,8 +148,8 @@ class SommerlejrTilmeldingPlugin
             $adultPrice = (float) $prices['adult_full'];
             $childPrice = (float) $prices['child_full'];
         } else {
-            $adultPrice = isset($prices['adult_day_' . $days]) ? (float) $prices['adult_day_' . $days] : 0;
-            $childPrice = ((float) $prices['child_full'] / 6) * $days;
+            $adultPrice = ((float) $prices['adult_day']) * $days;
+            $childPrice = ((float) $prices['child_day']) * $days;
         }
 
         return ($adults * $adultPrice) + ($children * $childPrice);
@@ -410,13 +406,9 @@ class SommerlejrTilmeldingPlugin
                 <input type="hidden" name="action" value="summer_camp_save_prices">
                 <table class="form-table">
                     <tr><th><label for="adult_full">Voksne alle dage</label></th><td><input type="number" step="0.01" name="adult_full" value="<?php echo esc_attr((string) $prices['adult_full']); ?>"></td></tr>
+                    <tr><th><label for="adult_day">Voksne dagspris</label></th><td><input type="number" step="0.01" name="adult_day" value="<?php echo esc_attr((string) $prices['adult_day']); ?>"></td></tr>
                     <tr><th><label for="child_full">Børn alle dage</label></th><td><input type="number" step="0.01" name="child_full" value="<?php echo esc_attr((string) $prices['child_full']); ?>"></td></tr>
-                    <?php for ($i = 1; $i <= 6; $i++) : ?>
-                        <tr>
-                            <th><label for="adult_day_<?php echo (int) $i; ?>">Voksne <?php echo (int) $i; ?> dag(e)</label></th>
-                            <td><input type="number" step="0.01" name="adult_day_<?php echo (int) $i; ?>" value="<?php echo esc_attr((string) $prices['adult_day_' . $i]); ?>"></td>
-                        </tr>
-                    <?php endfor; ?>
+                    <tr><th><label for="child_day">Børn dagspris</label></th><td><input type="number" step="0.01" name="child_day" value="<?php echo esc_attr((string) $prices['child_day']); ?>"></td></tr>
                 </table>
                 <?php submit_button('Gem priser'); ?>
             </form>
