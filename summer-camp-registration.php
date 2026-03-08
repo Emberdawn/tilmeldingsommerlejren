@@ -104,6 +104,102 @@ class SommerlejrTilmeldingPlugin
         }
 
         wp_enqueue_script('jquery');
+        wp_add_inline_script('jquery', '
+            jQuery(function($){
+                const form = $(".js-summer-camp-form");
+                if (!form.length) {
+                    return;
+                }
+
+                const fileInput = form.find("input[name=\"transfer_screenshot\"]");
+                const previewWrap = form.find(".js-file-preview");
+                const previewImage = form.find(".js-file-preview-image");
+                const previewName = form.find(".js-file-preview-name");
+                const progressWrap = form.find(".js-upload-progress-wrap");
+                const progressBar = form.find(".js-upload-progress");
+                const progressLabel = form.find(".js-upload-progress-label");
+
+                fileInput.on("change", function(){
+                    const file = this.files && this.files[0] ? this.files[0] : null;
+
+                    if (!file) {
+                        previewWrap.hide();
+                        previewImage.hide().attr("src", "");
+                        previewName.text("");
+                        return;
+                    }
+
+                    previewWrap.show();
+                    previewName.text(file.name);
+
+                    if (file.type.indexOf("image/") === 0) {
+                        previewImage.attr("src", URL.createObjectURL(file)).show();
+                    } else {
+                        previewImage.hide().attr("src", "");
+                    }
+                });
+
+                form.on("submit", function(e){
+                    const submitter = e.originalEvent && e.originalEvent.submitter ? e.originalEvent.submitter : null;
+                    const action = submitter ? $(submitter).val() : "";
+
+                    if (action !== "save") {
+                        return;
+                    }
+
+                    const hasFile = fileInput[0] && fileInput[0].files && fileInput[0].files.length > 0;
+                    if (!hasFile) {
+                        return;
+                    }
+
+                    e.preventDefault();
+
+                    const data = new FormData(form[0]);
+                    data.set("summer_camp_action", action);
+
+                    progressWrap.show();
+                    progressBar.val(0);
+                    progressLabel.text("0%");
+                    if (submitter) {
+                        $(submitter).prop("disabled", true);
+                    }
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.open("POST", window.location.href, true);
+                    xhr.upload.onprogress = function(event){
+                        if (!event.lengthComputable) {
+                            return;
+                        }
+
+                        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                        progressBar.val(percent);
+                        progressLabel.text(percent + "%");
+                    };
+
+                    xhr.onload = function(){
+                        if (submitter) {
+                            $(submitter).prop("disabled", false);
+                        }
+                        if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
+                            window.location.href = xhr.responseURL;
+                            return;
+                        }
+                        progressWrap.hide();
+                        alert("Upload fejlede. Prøv igen.");
+                    };
+
+                    xhr.onerror = function(){
+                        if (submitter) {
+                            $(submitter).prop("disabled", false);
+                        }
+                        progressWrap.hide();
+                        alert("Upload fejlede. Prøv igen.");
+                    };
+
+                    xhr.send(data);
+                });
+            });
+        ');
     }
 
     public function enqueue_admin_assets(string $hook): void
@@ -183,7 +279,7 @@ class SommerlejrTilmeldingPlugin
 
         ob_start();
         ?>
-        <form method="post" enctype="multipart/form-data" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
+        <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
             <?php wp_nonce_field(self::NONCE_ACTION); ?>
             <h3>Sommerlejr tilmelding</h3>
 
@@ -214,6 +310,16 @@ class SommerlejrTilmeldingPlugin
                 Screenshot af overførsel (png/jpg/pdf)
                 <input type="file" name="transfer_screenshot" accept="image/*,application/pdf" <?php echo $status === 'submitted' ? 'disabled' : ''; ?>>
             </label>
+
+            <div class="js-file-preview" style="display:none;gap:8px;align-items:center;">
+                <img class="js-file-preview-image" src="" alt="Forhåndsvisning" style="display:none;width:80px;height:80px;object-fit:cover;border:1px solid #ddd;border-radius:6px;">
+                <span class="js-file-preview-name" style="font-size:13px;color:#444;"></span>
+            </div>
+
+            <div class="js-upload-progress-wrap" style="display:none;">
+                <label style="display:block;margin-bottom:4px;">Upload status: <span class="js-upload-progress-label">0%</span></label>
+                <progress class="js-upload-progress" max="100" value="0" style="width:100%;"></progress>
+            </div>
 
             <?php if ($registration && $registration->transfer_screenshot_id) : ?>
                 <?php $url = wp_get_attachment_url((int) $registration->transfer_screenshot_id); ?>
