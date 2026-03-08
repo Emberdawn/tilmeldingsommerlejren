@@ -213,6 +213,8 @@ class SommerlejrTilmeldingPlugin
             .summer-camp-modal.active {display:flex;}
             .summer-camp-modal img {max-width:95vw; max-height:95vh; cursor:zoom-in; transform-origin:center center;}
             .summer-camp-modal .close {position:absolute; top:20px; right:20px; color:#fff; font-size:32px; cursor:pointer;}
+            .summer-camp-proof-thumb {display:inline-block; width:72px; height:72px; border:1px solid #ccd0d4; border-radius:4px; overflow:hidden;}
+            .summer-camp-proof-thumb img {width:100%; height:100%; object-fit:cover; display:block;}
         ');
 
         wp_add_inline_script('jquery-core', '
@@ -600,6 +602,7 @@ class SommerlejrTilmeldingPlugin
 
         foreach ($rows as $row) {
             $proof_url = $row->transfer_screenshot_id ? wp_get_attachment_url((int) $row->transfer_screenshot_id) : '';
+            $proof_thumb = $row->transfer_screenshot_id ? wp_get_attachment_image((int) $row->transfer_screenshot_id, [72, 72], false, ['alt' => 'Screenshot']) : '';
             echo '<tr>';
             echo '<td>' . (int) $row->id . '</td>';
             echo '<td>' . esc_html((string) $row->display_name) . '</td>';
@@ -611,7 +614,7 @@ class SommerlejrTilmeldingPlugin
             echo '<td>' . esc_html((string) $row->status) . '</td>';
 
             if ($proof_url) {
-                echo '<td><a href="#" class="js-open-proof" data-src="' . esc_url($proof_url) . '">Åbn screenshot</a></td>';
+                echo '<td><a href="#" class="js-open-proof summer-camp-proof-thumb" data-src="' . esc_url($proof_url) . '">' . $proof_thumb . '</a></td>';
             } else {
                 echo '<td>Ikke uploadet</td>';
             }
