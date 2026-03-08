@@ -155,6 +155,17 @@ class SommerlejrTilmeldingPlugin
                         return Number.isNaN(parsed) ? 0 : parsed;
                     }
 
+                    function formatTotal(value){
+                        if (typeof Intl !== "undefined" && typeof Intl.NumberFormat === "function") {
+                            return new Intl.NumberFormat("da-DK", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            }).format(value);
+                        }
+
+                        return value.toFixed(2).replace(".", ",");
+                    }
+
                     function updateTotalPrice(){
                         if (!totalValue.length) {
                             return;
@@ -165,15 +176,11 @@ class SommerlejrTilmeldingPlugin
                         const dayTickets = toNumber(dayTicketsInput);
                         const total = (adults * adultPrice) + (children * childPrice) + (dayTickets * dayTicketPrice);
 
-                        totalValue.text(total.toLocaleString("da-DK", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        }));
+                        totalValue.text(formatTotal(total));
                     }
 
-                    adultsInput.on("input change keyup", updateTotalPrice);
-                    childrenInput.on("input change keyup", updateTotalPrice);
-                    dayTicketsInput.on("input change keyup", updateTotalPrice);
+                    form.on("input change keyup click", "input[name=\"adults\"], input[name=\"children\"], input[name=\"day_tickets\"]", updateTotalPrice);
+                    $(window).on("pageshow", updateTotalPrice);
                     updateTotalPrice();
 
                     fileInput.on("change", function(){
