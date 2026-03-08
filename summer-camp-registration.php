@@ -106,152 +106,163 @@ class SommerlejrTilmeldingPlugin
         wp_enqueue_script('jquery');
         wp_add_inline_script('jquery', '
             jQuery(function($){
-                const form = $(".js-summer-camp-form");
-                if (!form.length) {
-                    return;
-                }
-
-                const fileInput = form.find("input[name=\"transfer_screenshot\"]");
-                const adultsInput = form.find("input[name=\"adults\"]");
-                const childrenInput = form.find("input[name=\"children\"]");
-                const dayTicketsInput = form.find("input[name=\"day_tickets\"]");
-                const totalValue = form.find(".js-total-price-value");
-                const previewWrap = form.find(".js-file-preview");
-                const previewImage = form.find(".js-file-preview-image");
-                const previewName = form.find(".js-file-preview-name");
-                const progressWrap = form.find(".js-upload-progress-wrap");
-                const progressBar = form.find(".js-upload-progress");
-                const progressLabel = form.find(".js-upload-progress-label");
-                function parseLocaleNumber(value){
-                    if (typeof value === "number") {
-                        return Number.isFinite(value) ? value : 0;
-                    }
-
-                    if (typeof value !== "string") {
-                        return 0;
-                    }
-
-                    const normalized = value
-                        .trim()
-                        .replace(/\./g, "")
-                        .replace(",", ".");
-                    const parsed = Number(normalized);
-
-                    return Number.isFinite(parsed) ? parsed : 0;
-                }
-
-                const adultPrice = parseLocaleNumber(String(form.data("adult-price") || "0"));
-                const childPrice = parseLocaleNumber(String(form.data("child-price") || "0"));
-                const dayTicketPrice = parseLocaleNumber(String(form.data("day-ticket-price") || "0"));
-
-                function toNumber(input){
-                    if (!input.length) {
-                        return 0;
-                    }
-
-                    const parsed = parseLocaleNumber(String(input.val() || "0"));
-                    return Number.isNaN(parsed) ? 0 : parsed;
-                }
-
-                function updateTotalPrice(){
-                    if (!totalValue.length) {
+                function initRegistrationForm(form){
+                    if (!form.length || form.data("summer-camp-init")) {
                         return;
                     }
 
-                    const adults = toNumber(adultsInput);
-                    const children = toNumber(childrenInput);
-                    const dayTickets = toNumber(dayTicketsInput);
-                    const total = (adults * adultPrice) + (children * childPrice) + (dayTickets * dayTicketPrice);
+                    form.data("summer-camp-init", true);
 
-                    totalValue.text(total.toLocaleString("da-DK", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    }));
+                    const fileInput = form.find("input[name=\"transfer_screenshot\"]");
+                    const adultsInput = form.find("input[name=\"adults\"]");
+                    const childrenInput = form.find("input[name=\"children\"]");
+                    const dayTicketsInput = form.find("input[name=\"day_tickets\"]");
+                    const totalValue = form.find(".js-total-price-value");
+                    const previewWrap = form.find(".js-file-preview");
+                    const previewImage = form.find(".js-file-preview-image");
+                    const previewName = form.find(".js-file-preview-name");
+                    const progressWrap = form.find(".js-upload-progress-wrap");
+                    const progressBar = form.find(".js-upload-progress");
+                    const progressLabel = form.find(".js-upload-progress-label");
+                    function parseLocaleNumber(value){
+                        if (typeof value === "number") {
+                            return Number.isFinite(value) ? value : 0;
+                        }
+
+                        if (typeof value !== "string") {
+                            return 0;
+                        }
+
+                        const normalized = value
+                            .trim()
+                            .replace(/\./g, "")
+                            .replace(",", ".");
+                        const parsed = Number(normalized);
+
+                        return Number.isFinite(parsed) ? parsed : 0;
+                    }
+
+                    const adultPrice = parseLocaleNumber(String(form.data("adult-price") || "0"));
+                    const childPrice = parseLocaleNumber(String(form.data("child-price") || "0"));
+                    const dayTicketPrice = parseLocaleNumber(String(form.data("day-ticket-price") || "0"));
+
+                    function toNumber(input){
+                        if (!input.length) {
+                            return 0;
+                        }
+
+                        const parsed = parseLocaleNumber(String(input.val() || "0"));
+                        return Number.isNaN(parsed) ? 0 : parsed;
+                    }
+
+                    function updateTotalPrice(){
+                        if (!totalValue.length) {
+                            return;
+                        }
+
+                        const adults = toNumber(adultsInput);
+                        const children = toNumber(childrenInput);
+                        const dayTickets = toNumber(dayTicketsInput);
+                        const total = (adults * adultPrice) + (children * childPrice) + (dayTickets * dayTicketPrice);
+
+                        totalValue.text(total.toLocaleString("da-DK", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }));
+                    }
+
+                    adultsInput.on("input change keyup", updateTotalPrice);
+                    childrenInput.on("input change keyup", updateTotalPrice);
+                    dayTicketsInput.on("input change keyup", updateTotalPrice);
+                    updateTotalPrice();
+
+                    fileInput.on("change", function(){
+                        const file = this.files && this.files[0] ? this.files[0] : null;
+
+                        if (!file) {
+                            previewWrap.hide();
+                            previewImage.hide().attr("src", "");
+                            previewName.text("");
+                            return;
+                        }
+
+                        previewWrap.show();
+                        previewName.text(file.name);
+
+                        if (file.type.indexOf("image/") === 0) {
+                            previewImage.attr("src", URL.createObjectURL(file)).show();
+                        } else {
+                            previewImage.hide().attr("src", "");
+                        }
+                    });
+
+                    form.on("submit", function(e){
+                        const submitter = e.originalEvent && e.originalEvent.submitter ? e.originalEvent.submitter : null;
+                        const action = submitter ? $(submitter).val() : "";
+
+                        if (action !== "save") {
+                            return;
+                        }
+
+                        const hasFile = fileInput[0] && fileInput[0].files && fileInput[0].files.length > 0;
+                        if (!hasFile) {
+                            return;
+                        }
+
+                        e.preventDefault();
+
+                        const data = new FormData(form[0]);
+                        data.set("summer_camp_action", action);
+
+                        progressWrap.show();
+                        progressBar.val(0);
+                        progressLabel.text("0%");
+                        if (submitter) {
+                            $(submitter).prop("disabled", true);
+                        }
+
+                        const xhr = new XMLHttpRequest();
+                        xhr.open("POST", window.location.href, true);
+                        xhr.upload.onprogress = function(event){
+                            if (!event.lengthComputable) {
+                                return;
+                            }
+
+                            const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                            progressBar.val(percent);
+                            progressLabel.text(percent + "%");
+                        };
+
+                        xhr.onload = function(){
+                            if (submitter) {
+                                $(submitter).prop("disabled", false);
+                            }
+                            if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
+                                window.location.href = xhr.responseURL;
+                                return;
+                            }
+                            progressWrap.hide();
+                            alert("Upload fejlede. Prøv igen.");
+                        };
+
+                        xhr.onerror = function(){
+                            if (submitter) {
+                                $(submitter).prop("disabled", false);
+                            }
+                            progressWrap.hide();
+                            alert("Upload fejlede. Prøv igen.");
+                        };
+
+                        xhr.send(data);
+                    });
                 }
 
-                adultsInput.on("input change keyup", updateTotalPrice);
-                childrenInput.on("input change keyup", updateTotalPrice);
-                dayTicketsInput.on("input change keyup", updateTotalPrice);
-                updateTotalPrice();
-
-                fileInput.on("change", function(){
-                    const file = this.files && this.files[0] ? this.files[0] : null;
-
-                    if (!file) {
-                        previewWrap.hide();
-                        previewImage.hide().attr("src", "");
-                        previewName.text("");
-                        return;
-                    }
-
-                    previewWrap.show();
-                    previewName.text(file.name);
-
-                    if (file.type.indexOf("image/") === 0) {
-                        previewImage.attr("src", URL.createObjectURL(file)).show();
-                    } else {
-                        previewImage.hide().attr("src", "");
-                    }
+                $(".js-summer-camp-form").each(function(){
+                    initRegistrationForm($(this));
                 });
 
-                form.on("submit", function(e){
-                    const submitter = e.originalEvent && e.originalEvent.submitter ? e.originalEvent.submitter : null;
-                    const action = submitter ? $(submitter).val() : "";
-
-                    if (action !== "save") {
-                        return;
-                    }
-
-                    const hasFile = fileInput[0] && fileInput[0].files && fileInput[0].files.length > 0;
-                    if (!hasFile) {
-                        return;
-                    }
-
-                    e.preventDefault();
-
-                    const data = new FormData(form[0]);
-                    data.set("summer_camp_action", action);
-
-                    progressWrap.show();
-                    progressBar.val(0);
-                    progressLabel.text("0%");
-                    if (submitter) {
-                        $(submitter).prop("disabled", true);
-                    }
-
-                    const xhr = new XMLHttpRequest();
-                    xhr.open("POST", window.location.href, true);
-                    xhr.upload.onprogress = function(event){
-                        if (!event.lengthComputable) {
-                            return;
-                        }
-
-                        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
-                        progressBar.val(percent);
-                        progressLabel.text(percent + "%");
-                    };
-
-                    xhr.onload = function(){
-                        if (submitter) {
-                            $(submitter).prop("disabled", false);
-                        }
-                        if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
-                            window.location.href = xhr.responseURL;
-                            return;
-                        }
-                        progressWrap.hide();
-                        alert("Upload fejlede. Prøv igen.");
-                    };
-
-                    xhr.onerror = function(){
-                        if (submitter) {
-                            $(submitter).prop("disabled", false);
-                        }
-                        progressWrap.hide();
-                        alert("Upload fejlede. Prøv igen.");
-                    };
-
-                    xhr.send(data);
+                $(document).on("focusin", ".js-summer-camp-form", function(){
+                    initRegistrationForm($(this));
                 });
             });
         ');
