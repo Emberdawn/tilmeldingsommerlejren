@@ -122,16 +122,34 @@ class SommerlejrTilmeldingPlugin
                 const progressWrap = form.find(".js-upload-progress-wrap");
                 const progressBar = form.find(".js-upload-progress");
                 const progressLabel = form.find(".js-upload-progress-label");
-                const adultPrice = Number(form.data("adult-price")) || 0;
-                const childPrice = Number(form.data("child-price")) || 0;
-                const dayTicketPrice = Number(form.data("day-ticket-price")) || 0;
+                function parseLocaleNumber(value){
+                    if (typeof value === "number") {
+                        return Number.isFinite(value) ? value : 0;
+                    }
+
+                    if (typeof value !== "string") {
+                        return 0;
+                    }
+
+                    const normalized = value
+                        .trim()
+                        .replace(/\./g, "")
+                        .replace(",", ".");
+                    const parsed = Number(normalized);
+
+                    return Number.isFinite(parsed) ? parsed : 0;
+                }
+
+                const adultPrice = parseLocaleNumber(String(form.data("adult-price") || "0"));
+                const childPrice = parseLocaleNumber(String(form.data("child-price") || "0"));
+                const dayTicketPrice = parseLocaleNumber(String(form.data("day-ticket-price") || "0"));
 
                 function toNumber(input){
                     if (!input.length) {
                         return 0;
                     }
 
-                    const parsed = parseInt(input.val(), 10);
+                    const parsed = parseLocaleNumber(String(input.val() || "0"));
                     return Number.isNaN(parsed) ? 0 : parsed;
                 }
 
@@ -151,9 +169,9 @@ class SommerlejrTilmeldingPlugin
                     }));
                 }
 
-                adultsInput.on("input change", updateTotalPrice);
-                childrenInput.on("input change", updateTotalPrice);
-                dayTicketsInput.on("input change", updateTotalPrice);
+                adultsInput.on("input change keyup", updateTotalPrice);
+                childrenInput.on("input change keyup", updateTotalPrice);
+                dayTicketsInput.on("input change keyup", updateTotalPrice);
                 updateTotalPrice();
 
                 fileInput.on("change", function(){
