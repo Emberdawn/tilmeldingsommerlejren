@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/emberpro/staging.emberproducts.dk/sommelejrthylejren/wp-content/plugins/tilmeldingsommerlejren 
+    - /bin/cp -R * $DEPLOYPATH
