@@ -453,7 +453,7 @@ class SommerlejrTilmeldingPlugin
 
         ob_start();
         ?>
-        <div style="max-width:420px;padding:16px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+        <div style="max-width:420px;padding:16px;border:1px solid #ddd;border-radius:8px;background:transparent;">
             <h3 style="margin-top:0;">Tilmeldingsstatus</h3>
             <ul style="margin:0;padding-left:18px;display:grid;gap:6px;">
                 <li><strong>Voksne tilmeldt:</strong> <?php echo esc_html(number_format_i18n($adults)); ?></li>
