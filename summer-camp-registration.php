@@ -374,7 +374,6 @@ class SommerlejrTilmeldingPlugin
                     zoom = 1;
                     $("#summer-camp-proof-image").attr("src", src);
                     applyZoom();
-                    $("#summer-camp-proof-open-original").attr("href", src);
                     $("#summer-camp-modal").addClass("active");
                 });
 
@@ -740,7 +739,6 @@ class SommerlejrTilmeldingPlugin
         echo '<div class="summer-camp-modal-dialog">';
         echo '<span class="close" aria-label="Luk">&times;</span>';
         echo '<div class="summer-camp-modal-toolbar">';
-        echo '<a id="summer-camp-proof-open-original" class="button" href="#" target="_blank" rel="noopener noreferrer">Åbn original</a>';
         echo '<button id="summer-camp-proof-zoom-out" class="button" type="button" aria-label="Zoom ud">-</button>';
         echo '<button id="summer-camp-proof-zoom-in" class="button" type="button" aria-label="Zoom ind">+</button>';
         echo '</div>';
@@ -803,7 +801,7 @@ class SommerlejrTilmeldingPlugin
 
             if ($proof_url) {
                 if ($is_image && $proof_thumb) {
-                    echo '<td><a href="#" class="js-open-proof summer-camp-proof-thumb" data-src="' . esc_url($proof_url) . '" data-is-image="1">' . $proof_thumb . '</a></td>';
+                    echo '<td><a href="' . esc_url($proof_url) . '" class="summer-camp-proof-thumb" target="_blank" rel="noopener noreferrer">' . $proof_thumb . '</a></td>';
                 } else {
                     echo '<td><a href="' . esc_url($proof_url) . '" class="button button-small" target="_blank" rel="noopener noreferrer">Åbn fil</a></td>';
                 }
