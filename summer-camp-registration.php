@@ -500,14 +500,13 @@ class SommerlejrTilmeldingPlugin
                 <?php $url = wp_get_attachment_url((int) $registration->transfer_screenshot_id); ?>
                 <?php if ($url) : ?>
                     <?php if (wp_attachment_is_image((int) $registration->transfer_screenshot_id)) : ?>
-                        <div style="display:flex;align-items:center;gap:8px;">
+                        <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener noreferrer" style="display:inline-block;">
                             <img
                                 src="<?php echo esc_url($url); ?>"
                                 alt="Nuværende upload"
                                 style="width:80px;height:80px;object-fit:cover;border:1px solid #ddd;border-radius:6px;"
                             >
-                            <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener noreferrer">Åbn original</a>
-                        </div>
+                        </a>
                     <?php else : ?>
                         <p>Nuværende fil: <a href="<?php echo esc_url($url); ?>" target="_blank" rel="noopener noreferrer">Åbn upload</a></p>
                     <?php endif; ?>
