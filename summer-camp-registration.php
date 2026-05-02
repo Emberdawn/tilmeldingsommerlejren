@@ -22,6 +22,7 @@ class SommerlejrTilmeldingPlugin
         add_shortcode('summer_camp_registration', [$this, 'render_registration_shortcode']);
         add_shortcode('summer_camp_registration_stats', [$this, 'render_stats_widget_shortcode']);
         add_shortcode('summer_camp_pending_registrations', [$this, 'render_pending_registrations_shortcode']);
+        add_shortcode('summer_camp_approved_registrations', [$this, 'render_approved_registrations_shortcode']);
         add_action('admin_menu', [$this, 'register_admin_menus']);
         add_action('admin_post_summer_camp_save_prices', [$this, 'handle_save_prices']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -484,6 +485,25 @@ class SommerlejrTilmeldingPlugin
                 <div class="notice notice-success"><p>Tilmelding godkendt.</p></div>
             <?php endif; ?>
             <?php $this->render_table($rows, true); ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
+    public function render_approved_registrations_shortcode(): string
+    {
+        if (!is_user_logged_in() || !current_user_can('manage_options')) {
+            return '<p>Du har ikke adgang til at se denne side.</p>';
+        }
+
+        $rows = $this->fetch_registrations('approved');
+
+        ob_start();
+        ?>
+        <div class="summer-camp-approved-shortcode">
+            <h2>Godkendte tilmeldinger</h2>
+            <?php $this->render_table($rows, false); ?>
         </div>
         <?php
 
