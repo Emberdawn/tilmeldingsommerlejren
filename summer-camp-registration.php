@@ -21,6 +21,7 @@ class SommerlejrTilmeldingPlugin
         register_activation_hook(__FILE__, [$this, 'activate']);
         add_shortcode('summer_camp_registration', [$this, 'render_registration_shortcode']);
         add_shortcode('summer_camp_registration_stats', [$this, 'render_stats_widget_shortcode']);
+        add_shortcode('summer_camp_pending_registrations', [$this, 'render_pending_registrations_shortcode']);
         add_action('admin_menu', [$this, 'register_admin_menus']);
         add_action('admin_post_summer_camp_save_prices', [$this, 'handle_save_prices']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -466,6 +467,29 @@ class SommerlejrTilmeldingPlugin
         return (string) ob_get_clean();
     }
 
+
+    public function render_pending_registrations_shortcode(): string
+    {
+        if (!is_user_logged_in() || !current_user_can('manage_options')) {
+            return '<p>Du har ikke adgang til at se denne side.</p>';
+        }
+
+        $rows = $this->fetch_registrations('submitted');
+
+        ob_start();
+        ?>
+        <div class="summer-camp-pending-shortcode">
+            <h2>Afventer godkendelse</h2>
+            <?php if (isset($_GET['summer_camp_approved'])) : ?>
+                <div class="notice notice-success"><p>Tilmelding godkendt.</p></div>
+            <?php endif; ?>
+            <?php $this->render_table($rows, true); ?>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
+    }
+
     public function render_registration_shortcode(): string
     {
         if (!is_user_logged_in()) {
@@ -895,7 +919,9 @@ class SommerlejrTilmeldingPlugin
             );
         }
 
-        wp_safe_redirect(admin_url('admin.php?page=summer-camp-pending'));
+        $redirectUrl = isset($_POST['_wp_http_referer']) ? wp_unslash((string) $_POST['_wp_http_referer']) : admin_url('admin.php?page=summer-camp-pending');
+        $redirectUrl = add_query_arg(['summer_camp_approved' => 1], $redirectUrl);
+        wp_safe_redirect($redirectUrl);
         exit;
     }
 }
