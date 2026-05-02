@@ -20,6 +20,7 @@ class SommerlejrTilmeldingPlugin
     {
         register_activation_hook(__FILE__, [$this, 'activate']);
         add_shortcode('summer_camp_registration', [$this, 'render_registration_shortcode']);
+        add_shortcode('summer_camp_registration_stats', [$this, 'render_stats_widget_shortcode']);
         add_action('admin_menu', [$this, 'register_admin_menus']);
         add_action('admin_post_summer_camp_save_prices', [$this, 'handle_save_prices']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
@@ -429,6 +430,40 @@ class SommerlejrTilmeldingPlugin
         return ($adults * (float) $prices['adult_full'])
             + ($children * (float) $prices['child_full'])
             + ($dayTickets * (float) $prices['day_ticket']);
+    }
+
+
+    public function render_stats_widget_shortcode(): string
+    {
+        global $wpdb;
+
+        $table = $this->registrations_table_name();
+        $stats = $wpdb->get_row(
+            "SELECT
+                COALESCE(SUM(adults), 0) AS adults_total,
+                COALESCE(SUM(children), 0) AS children_total,
+                COALESCE(SUM(day_tickets), 0) AS day_tickets_total
+             FROM {$table}
+             WHERE status IN ('submitted', 'approved')"
+        );
+
+        $adults = isset($stats->adults_total) ? (int) $stats->adults_total : 0;
+        $children = isset($stats->children_total) ? (int) $stats->children_total : 0;
+        $dayTickets = isset($stats->day_tickets_total) ? (int) $stats->day_tickets_total : 0;
+
+        ob_start();
+        ?>
+        <div style="max-width:420px;padding:16px;border:1px solid #ddd;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;">Tilmeldingsstatus</h3>
+            <ul style="margin:0;padding-left:18px;display:grid;gap:6px;">
+                <li><strong>Voksne tilmeldt:</strong> <?php echo esc_html(number_format_i18n($adults)); ?></li>
+                <li><strong>Børn tilmeldt:</strong> <?php echo esc_html(number_format_i18n($children)); ?></li>
+                <li><strong>Dagsbilletter solgt:</strong> <?php echo esc_html(number_format_i18n($dayTickets)); ?></li>
+            </ul>
+        </div>
+        <?php
+
+        return (string) ob_get_clean();
     }
 
     public function render_registration_shortcode(): string
