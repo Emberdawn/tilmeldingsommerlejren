@@ -125,6 +125,7 @@ class SommerlejrTilmeldingPlugin
                     const progressBar = form.find(".js-upload-progress");
                     const progressLabel = form.find(".js-upload-progress-label");
                     let processingInterval = null;
+                    let hasUploadCompleted = false;
 
                     function stopProcessingAnimation(){
                         if (processingInterval !== null) {
@@ -143,8 +144,13 @@ class SommerlejrTilmeldingPlugin
 
                             const next = Math.min(98, current + 1);
                             progressBar.val(next);
-                            progressLabel.text(next + "% (behandler...)");
+                            progressLabel.text(next + "% (færdiggør...)");
                         }, 250);
+                    }
+                    function setProgress(percent, statusText){
+                        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+                        progressBar.val(clamped);
+                        progressLabel.text(clamped + "% (" + statusText + ")");
                     }
                     function parseLocaleNumber(value){
                         if (typeof value === "number") {
@@ -246,8 +252,8 @@ class SommerlejrTilmeldingPlugin
                         data.set("summer_camp_action", action);
 
                         progressWrap.show();
-                        progressBar.val(0);
-                        progressLabel.text("0%");
+                        hasUploadCompleted = false;
+                        setProgress(0, "forbereder...");
                         stopProcessingAnimation();
                         if (submitter) {
                             $(submitter).prop("disabled", true);
@@ -261,11 +267,12 @@ class SommerlejrTilmeldingPlugin
                             }
 
                             const percent = Math.min(90, Math.round((event.loaded / event.total) * 90));
-                            progressBar.val(percent);
-                            progressLabel.text(percent + "%");
+                            setProgress(percent, "uploader...");
                         };
 
                         xhr.upload.onload = function(){
+                            hasUploadCompleted = true;
+                            setProgress(Math.max(90, Number(progressBar.val() || 0)), "behandler...");
                             startProcessingAnimation();
                         };
 
@@ -275,8 +282,9 @@ class SommerlejrTilmeldingPlugin
                                 $(submitter).prop("disabled", false);
                             }
                             if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
-                                progressBar.val(100);
-                                progressLabel.text("100%");
+                                const completedFrom = hasUploadCompleted ? 99 : 95;
+                                setProgress(completedFrom, "afslutter...");
+                                setProgress(100, "færdig");
                                 window.location.href = xhr.responseURL;
                                 return;
                             }
