@@ -124,6 +124,28 @@ class SommerlejrTilmeldingPlugin
                     const progressWrap = form.find(".js-upload-progress-wrap");
                     const progressBar = form.find(".js-upload-progress");
                     const progressLabel = form.find(".js-upload-progress-label");
+                    let processingInterval = null;
+
+                    function stopProcessingAnimation(){
+                        if (processingInterval !== null) {
+                            window.clearInterval(processingInterval);
+                            processingInterval = null;
+                        }
+                    }
+
+                    function startProcessingAnimation(){
+                        stopProcessingAnimation();
+                        processingInterval = window.setInterval(function(){
+                            const current = Number(progressBar.val() || 0);
+                            if (current >= 98) {
+                                return;
+                            }
+
+                            const next = Math.min(98, current + 1);
+                            progressBar.val(next);
+                            progressLabel.text(next + "% (behandler...)");
+                        }, 250);
+                    }
                     function parseLocaleNumber(value){
                         if (typeof value === "number") {
                             return Number.isFinite(value) ? value : 0;
@@ -226,6 +248,7 @@ class SommerlejrTilmeldingPlugin
                         progressWrap.show();
                         progressBar.val(0);
                         progressLabel.text("0%");
+                        stopProcessingAnimation();
                         if (submitter) {
                             $(submitter).prop("disabled", true);
                         }
@@ -237,16 +260,23 @@ class SommerlejrTilmeldingPlugin
                                 return;
                             }
 
-                            const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                            const percent = Math.min(90, Math.round((event.loaded / event.total) * 90));
                             progressBar.val(percent);
                             progressLabel.text(percent + "%");
                         };
 
+                        xhr.upload.onload = function(){
+                            startProcessingAnimation();
+                        };
+
                         xhr.onload = function(){
+                            stopProcessingAnimation();
                             if (submitter) {
                                 $(submitter).prop("disabled", false);
                             }
                             if (xhr.status >= 200 && xhr.status < 400 && xhr.responseURL) {
+                                progressBar.val(100);
+                                progressLabel.text("100%");
                                 window.location.href = xhr.responseURL;
                                 return;
                             }
@@ -255,6 +285,7 @@ class SommerlejrTilmeldingPlugin
                         };
 
                         xhr.onerror = function(){
+                            stopProcessingAnimation();
                             if (submitter) {
                                 $(submitter).prop("disabled", false);
                             }
