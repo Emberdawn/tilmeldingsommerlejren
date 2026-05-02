@@ -450,6 +450,7 @@ class SommerlejrTilmeldingPlugin
         $total = $this->calculate_total($adults, $children, $dayTickets);
         $prices = $this->get_prices();
         $status = $registration ? $registration->status : 'draft';
+        $isLocked = in_array($status, ['submitted', 'approved'], true);
 
         ob_start();
         ?>
@@ -467,22 +468,22 @@ class SommerlejrTilmeldingPlugin
 
             <label>
                 Antal voksne
-                <input type="number" min="0" max="99" name="adults" value="<?php echo esc_attr((string) $adults); ?>" required style="max-width:90px;">
+                <input type="number" min="0" max="99" name="adults" value="<?php echo esc_attr((string) $adults); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
             </label>
 
             <label>
                 Antal børn
-                <input type="number" min="0" max="99" name="children" value="<?php echo esc_attr((string) $children); ?>" required style="max-width:90px;">
+                <input type="number" min="0" max="99" name="children" value="<?php echo esc_attr((string) $children); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
             </label>
 
             <label>
                 Dagsbillet
-                <input type="number" min="0" max="99" name="day_tickets" value="<?php echo esc_attr((string) $dayTickets); ?>" required style="max-width:90px;">
+                <input type="number" min="0" max="99" name="day_tickets" value="<?php echo esc_attr((string) $dayTickets); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
             </label>
 
             <label>
                 Screenshot af overførsel (png/jpg/pdf)
-                <input type="file" name="transfer_screenshot" accept="image/*,application/pdf" <?php echo $status === 'submitted' ? 'disabled' : ''; ?>>
+                <input type="file" name="transfer_screenshot" accept="image/*,application/pdf" <?php echo $isLocked ? 'disabled' : ''; ?>>
             </label>
 
             <div class="js-file-preview" style="display:none;gap:8px;align-items:center;">
@@ -520,9 +521,13 @@ class SommerlejrTilmeldingPlugin
             ?>
 
             <div style="display:flex;gap:10px;">
-                <button type="submit" name="summer_camp_action" value="save" class="button button-secondary">Gem</button>
+                <?php if ($isLocked) : ?>
+                    <button type="button" class="button button-secondary" style="opacity:.5;cursor:not-allowed;" disabled>Gem</button>
+                <?php else : ?>
+                    <button type="submit" name="summer_camp_action" value="save" class="button button-secondary">Gem</button>
+                <?php endif; ?>
 
-                <?php if ($hasRequired && $status !== 'submitted') : ?>
+                <?php if ($hasRequired && !$isLocked) : ?>
                     <button type="submit" name="summer_camp_action" value="submit" class="button button-primary">Send til godkendelse</button>
                 <?php else : ?>
                     <button type="button" class="button button-primary" style="opacity:.5;cursor:not-allowed;" disabled>Send til godkendelse</button>
@@ -536,6 +541,11 @@ class SommerlejrTilmeldingPlugin
 
     private function process_form_submission(int $user_id, $existing)
     {
+        if ($existing && in_array((string) $existing->status, ['submitted', 'approved'], true)) {
+            wp_safe_redirect(add_query_arg(['summer_camp_submitted' => 1], get_permalink()));
+            exit;
+        }
+
         $action = sanitize_text_field((string) $_POST['summer_camp_action']);
         $adults = isset($_POST['adults']) ? min(99, max(0, (int) $_POST['adults'])) : 0;
         $children = isset($_POST['children']) ? min(99, max(0, (int) $_POST['children'])) : 0;
