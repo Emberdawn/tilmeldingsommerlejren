@@ -466,6 +466,10 @@ class SommerlejrTilmeldingPlugin
                 <p style="color:#0a7d22;">Din tilmelding er sendt til godkendelse.</p>
             <?php endif; ?>
 
+            <?php if ($status === 'approved') : ?>
+                <p style="color:#0a7d22;">Tilmelding godkendt.</p>
+            <?php endif; ?>
+
             <label>
                 Antal voksne
                 <input type="number" min="0" max="99" name="adults" value="<?php echo esc_attr((string) $adults); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
