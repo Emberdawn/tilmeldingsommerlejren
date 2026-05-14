@@ -544,6 +544,24 @@ class SommerlejrTilmeldingPlugin
         $status = $registration ? $registration->status : 'draft';
         $isLocked = in_array($status, ['submitted', 'approved'], true);
 
+        if ($isLocked) {
+            ob_start();
+            ?>
+            <div style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
+                <h3>Sommerlejr tilmelding</h3>
+                <?php if ($status === 'approved') : ?>
+                    <p style="color:#0a7d22;">Tilmelding godkendt. Du kan ikke indsende en ny tilmelding.</p>
+                <?php else : ?>
+                    <p style="color:#0a7d22;">Din tilmelding er sendt til godkendelse. Du kan ikke redigere eller indsende igen.</p>
+                <?php endif; ?>
+                <p><strong>Registreret antal:</strong> <?php echo esc_html((string) $adults); ?> voksne, <?php echo esc_html((string) $children); ?> børn, <?php echo esc_html((string) $dayTickets); ?> dagsbilletter.</p>
+                <p><strong>Samlet pris:</strong> <?php echo esc_html(number_format_i18n($total, 2)); ?> kr.</p>
+            </div>
+            <?php
+
+            return (string) ob_get_clean();
+        }
+
         ob_start();
         ?>
         <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;" data-adult-price="<?php echo esc_attr((string) $prices['adult_full']); ?>" data-child-price="<?php echo esc_attr((string) $prices['child_full']); ?>" data-day-ticket-price="<?php echo esc_attr((string) $prices['day_ticket']); ?>">
