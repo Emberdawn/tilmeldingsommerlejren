@@ -417,9 +417,22 @@ class SommerlejrTilmeldingPlugin
     {
         global $wpdb;
 
+        $table = $this->registrations_table_name();
+
+        $lockedRegistration = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$table} WHERE user_id = %d AND status IN ('submitted', 'approved') ORDER BY id DESC LIMIT 1",
+                $user_id
+            )
+        );
+
+        if ($lockedRegistration) {
+            return $lockedRegistration;
+        }
+
         return $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$this->registrations_table_name()} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
                 $user_id
             )
         );
@@ -541,7 +554,7 @@ class SommerlejrTilmeldingPlugin
                 <p style="color:#0a7d22;">Dine oplysninger er gemt.</p>
             <?php endif; ?>
 
-            <?php if (isset($_GET['summer_camp_submitted'])) : ?>
+            <?php if (isset($_GET['summer_camp_submitted']) || $status === 'submitted') : ?>
                 <p style="color:#0a7d22;">Din tilmelding er sendt til godkendelse.</p>
             <?php endif; ?>
 
