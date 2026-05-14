@@ -961,13 +961,32 @@ class SommerlejrTilmeldingPlugin
 
         if ($registrationId > 0) {
             global $wpdb;
-            $wpdb->update(
-                $this->registrations_table_name(),
-                ['status' => 'approved', 'updated_at' => current_time('mysql')],
-                ['id' => $registrationId],
-                ['%s', '%s'],
-                ['%d']
+
+            $table = $this->registrations_table_name();
+            $userId = (int) $wpdb->get_var(
+                $wpdb->prepare("SELECT user_id FROM {$table} WHERE id = %d", $registrationId)
             );
+
+            if ($userId > 0) {
+                // Godkend alle afventende tilmeldinger for brugeren, så der ikke ligger en ældre/nyere indsendt række tilbage.
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "UPDATE {$table} SET status = %s, updated_at = %s WHERE user_id = %d AND status = %s",
+                        'approved',
+                        current_time('mysql'),
+                        $userId,
+                        'submitted'
+                    )
+                );
+            } else {
+                $wpdb->update(
+                    $table,
+                    ['status' => 'approved', 'updated_at' => current_time('mysql')],
+                    ['id' => $registrationId],
+                    ['%s', '%s'],
+                    ['%d']
+                );
+            }
         }
 
         $redirectUrl = isset($_POST['_wp_http_referer']) ? wp_unslash((string) $_POST['_wp_http_referer']) : admin_url('admin.php?page=summer-camp-pending');
