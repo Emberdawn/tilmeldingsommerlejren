@@ -714,6 +714,10 @@ class SommerlejrTilmeldingPlugin
             $registration_id = (int) $wpdb->insert_id;
         }
 
+        if ($status === 'submitted') {
+            $this->send_status_email($user_id, 'submitted');
+        }
+
         $redirectArg = $status === 'submitted' ? 'summer_camp_submitted' : 'summer_camp_saved';
         wp_safe_redirect(add_query_arg([$redirectArg => 1], get_permalink()));
         exit;
@@ -750,6 +754,45 @@ class SommerlejrTilmeldingPlugin
         return $attach_id;
     }
 
+
+    private function send_status_email(int $userId, string $status): void
+    {
+        $user = get_userdata($userId);
+        if (!$user || !is_email($user->user_email)) {
+            return;
+        }
+
+        $subject = '';
+        $message = '';
+
+        if ($status === 'submitted') {
+            $subject = 'Din sommerlejr-tilmelding er sendt til godkendelse';
+            $message = "Hej {$user->display_name},
+
+";
+            $message .= "Vi har modtaget din tilmelding, og den er nu sendt til godkendelse.
+";
+            $message .= "Du får besked igen, når den er behandlet.
+
+";
+            $message .= "Venlig hilsen
+Sommerlejr-teamet";
+        } elseif ($status === 'approved') {
+            $subject = 'Din sommerlejr-tilmelding er godkendt';
+            $message = "Hej {$user->display_name},
+
+";
+            $message .= "God nyhed! Din tilmelding til sommerlejr er nu godkendt.
+
+";
+            $message .= "Venlig hilsen
+Sommerlejr-teamet";
+        }
+
+        if ($subject !== '' && $message !== '') {
+            wp_mail($user->user_email, $subject, $message);
+        }
+    }
     public function register_admin_menus(): void
     {
         add_menu_page(
@@ -978,6 +1021,8 @@ class SommerlejrTilmeldingPlugin
                         'submitted'
                     )
                 );
+
+                $this->send_status_email($userId, 'approved');
             } else {
                 $wpdb->update(
                     $table,
