@@ -105,6 +105,8 @@ class SommerlejrTilmeldingPlugin
     private function default_emails(): array
     {
         return [
+            'sender_name' => get_bloginfo('name'),
+            'sender_email' => get_option('admin_email'),
             'submitted_subject' => 'Din sommerlejr-tilmelding er sendt til godkendelse',
             'submitted_message' => "Hej {display_name},\n\nVi har modtaget din tilmelding, og den er nu sendt til godkendelse.\nDu får besked igen, når den er behandlet.\n\nVenlig hilsen\nSommerlejr-teamet",
             'approved_subject' => 'Din sommerlejr-tilmelding er godkendt',
@@ -800,9 +802,18 @@ class SommerlejrTilmeldingPlugin
         ];
         $subject = strtr($subject, $replacements);
         $message = strtr($message, $replacements);
+        $senderName = isset($emails['sender_name']) ? sanitize_text_field((string) $emails['sender_name']) : '';
+        $senderEmail = isset($emails['sender_email']) ? sanitize_email((string) $emails['sender_email']) : '';
+
+        $headers = [];
+        if ($senderName !== '' && is_email($senderEmail)) {
+            $headers[] = sprintf('From: %s <%s>', $senderName, $senderEmail);
+        } elseif (is_email($senderEmail)) {
+            $headers[] = sprintf('From: %s', $senderEmail);
+        }
 
         if ($subject !== '' && $message !== '') {
-            wp_mail($user->user_email, $subject, $message);
+            wp_mail($user->user_email, $subject, $message, $headers);
         }
     }
     public function register_admin_menus(): void
@@ -918,6 +929,14 @@ class SommerlejrTilmeldingPlugin
                 <input type="hidden" name="action" value="summer_camp_save_emails">
                 <table class="form-table">
                     <tr>
+                        <th><label for="sender_name">Afsender navn</label></th>
+                        <td><input type="text" class="regular-text" name="sender_name" value="<?php echo esc_attr((string) $emails['sender_name']); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th><label for="sender_email">Afsender email</label></th>
+                        <td><input type="email" class="regular-text" name="sender_email" value="<?php echo esc_attr((string) $emails['sender_email']); ?>"></td>
+                    </tr>
+                    <tr>
                         <th><label for="submitted_subject">Emne: Sendt til godkendelse</label></th>
                         <td><input type="text" class="regular-text" name="submitted_subject" value="<?php echo esc_attr((string) $emails['submitted_subject']); ?>"></td>
                     </tr>
@@ -952,6 +971,16 @@ class SommerlejrTilmeldingPlugin
         $emails = [];
         foreach (array_keys($defaults) as $key) {
             $value = isset($_POST[$key]) ? wp_unslash((string) $_POST[$key]) : '';
+            if ($key === 'sender_email') {
+                $emails[$key] = sanitize_email($value);
+                continue;
+            }
+
+            if ($key === 'sender_name') {
+                $emails[$key] = sanitize_text_field($value);
+                continue;
+            }
+
             $emails[$key] = sanitize_textarea_field($value);
         }
 
