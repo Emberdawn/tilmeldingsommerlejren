@@ -14,6 +14,7 @@ class SommerlejrTilmeldingPlugin
 {
     private const REG_TABLE = 'summer_camp_registrations';
     private const PRICE_OPTION = 'summer_camp_price_settings';
+    private const EMAIL_OPTION = 'summer_camp_email_settings';
     private const NONCE_ACTION = 'summer_camp_form_nonce';
 
     public function __construct()
@@ -25,6 +26,7 @@ class SommerlejrTilmeldingPlugin
         add_shortcode('summer_camp_approved_registrations', [$this, 'render_approved_registrations_shortcode']);
         add_action('admin_menu', [$this, 'register_admin_menus']);
         add_action('admin_post_summer_camp_save_prices', [$this, 'handle_save_prices']);
+        add_action('admin_post_summer_camp_save_emails', [$this, 'handle_save_emails']);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('admin_post_summer_camp_approve_registration', [$this, 'handle_approve_registration']);
@@ -98,6 +100,24 @@ class SommerlejrTilmeldingPlugin
         $defaults = $this->default_prices();
 
         return wp_parse_args($prices, $defaults);
+    }
+
+    private function default_emails(): array
+    {
+        return [
+            'submitted_subject' => 'Din sommerlejr-tilmelding er sendt til godkendelse',
+            'submitted_message' => "Hej {display_name},\n\nVi har modtaget din tilmelding, og den er nu sendt til godkendelse.\nDu får besked igen, når den er behandlet.\n\nVenlig hilsen\nSommerlejr-teamet",
+            'approved_subject' => 'Din sommerlejr-tilmelding er godkendt',
+            'approved_message' => "Hej {display_name},\n\nGod nyhed! Din tilmelding til sommerlejr er nu godkendt.\n\nVenlig hilsen\nSommerlejr-teamet",
+        ];
+    }
+
+    private function get_emails(): array
+    {
+        $emails = get_option(self::EMAIL_OPTION, []);
+        $defaults = $this->default_emails();
+
+        return wp_parse_args($emails, $defaults);
     }
 
     public function enqueue_assets(): void
@@ -762,32 +782,24 @@ class SommerlejrTilmeldingPlugin
             return;
         }
 
+        $emails = $this->get_emails();
         $subject = '';
         $message = '';
 
         if ($status === 'submitted') {
-            $subject = 'Din sommerlejr-tilmelding er sendt til godkendelse';
-            $message = "Hej {$user->display_name},
-
-";
-            $message .= "Vi har modtaget din tilmelding, og den er nu sendt til godkendelse.
-";
-            $message .= "Du får besked igen, når den er behandlet.
-
-";
-            $message .= "Venlig hilsen
-Sommerlejr-teamet";
+            $subject = (string) $emails['submitted_subject'];
+            $message = (string) $emails['submitted_message'];
         } elseif ($status === 'approved') {
-            $subject = 'Din sommerlejr-tilmelding er godkendt';
-            $message = "Hej {$user->display_name},
-
-";
-            $message .= "God nyhed! Din tilmelding til sommerlejr er nu godkendt.
-
-";
-            $message .= "Venlig hilsen
-Sommerlejr-teamet";
+            $subject = (string) $emails['approved_subject'];
+            $message = (string) $emails['approved_message'];
         }
+
+        $replacements = [
+            '{display_name}' => (string) $user->display_name,
+            '{email}' => (string) $user->user_email,
+        ];
+        $subject = strtr($subject, $replacements);
+        $message = strtr($message, $replacements);
 
         if ($subject !== '' && $message !== '') {
             wp_mail($user->user_email, $subject, $message);
@@ -811,6 +823,14 @@ Sommerlejr-teamet";
             'manage_options',
             'summer-camp-prices',
             [$this, 'render_prices_page']
+        );
+        add_submenu_page(
+            'summer-camp',
+            'Mail indstillinger',
+            'Mail indstillinger',
+            'manage_options',
+            'summer-camp-emails',
+            [$this, 'render_emails_page']
         );
 
         add_submenu_page(
@@ -876,6 +896,67 @@ Sommerlejr-teamet";
 
         update_option(self::PRICE_OPTION, $prices);
         wp_safe_redirect(add_query_arg(['saved' => 1], admin_url('admin.php?page=summer-camp-prices')));
+        exit;
+    }
+
+    public function render_emails_page(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Ingen adgang.');
+        }
+
+        $emails = $this->get_emails();
+        ?>
+        <div class="wrap">
+            <h1>Mail indstillinger</h1>
+            <?php if (isset($_GET['saved'])) : ?>
+                <div class="notice notice-success"><p>Mail skabeloner gemt.</p></div>
+            <?php endif; ?>
+            <p>Du kan bruge pladsholdere: <code>{display_name}</code> og <code>{email}</code>.</p>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('summer_camp_save_emails'); ?>
+                <input type="hidden" name="action" value="summer_camp_save_emails">
+                <table class="form-table">
+                    <tr>
+                        <th><label for="submitted_subject">Emne: Sendt til godkendelse</label></th>
+                        <td><input type="text" class="regular-text" name="submitted_subject" value="<?php echo esc_attr((string) $emails['submitted_subject']); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th><label for="submitted_message">Besked: Sendt til godkendelse</label></th>
+                        <td><textarea name="submitted_message" class="large-text" rows="8"><?php echo esc_textarea((string) $emails['submitted_message']); ?></textarea></td>
+                    </tr>
+                    <tr>
+                        <th><label for="approved_subject">Emne: Godkendt</label></th>
+                        <td><input type="text" class="regular-text" name="approved_subject" value="<?php echo esc_attr((string) $emails['approved_subject']); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th><label for="approved_message">Besked: Godkendt</label></th>
+                        <td><textarea name="approved_message" class="large-text" rows="8"><?php echo esc_textarea((string) $emails['approved_message']); ?></textarea></td>
+                    </tr>
+                </table>
+                <?php submit_button('Gem mail skabeloner'); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_save_emails(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Ingen adgang.');
+        }
+
+        check_admin_referer('summer_camp_save_emails');
+
+        $defaults = $this->default_emails();
+        $emails = [];
+        foreach (array_keys($defaults) as $key) {
+            $value = isset($_POST[$key]) ? wp_unslash((string) $_POST[$key]) : '';
+            $emails[$key] = sanitize_textarea_field($value);
+        }
+
+        update_option(self::EMAIL_OPTION, $emails);
+        wp_safe_redirect(add_query_arg(['saved' => 1], admin_url('admin.php?page=summer-camp-emails')));
         exit;
     }
 
