@@ -569,18 +569,14 @@ class SommerlejrTilmeldingPlugin
         $total = $this->calculate_total($adults, $children, $dayTickets);
         $prices = $this->get_prices();
         $status = $registration ? $registration->status : 'draft';
-        $isLocked = in_array($status, ['submitted', 'approved'], true);
+        $isLocked = $status === 'approved';
 
-        if ($isLocked) {
+        if ($status === 'approved') {
             ob_start();
             ?>
             <div style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
                 <h3>Sommerlejr tilmelding</h3>
-                <?php if ($status === 'approved') : ?>
-                    <p style="color:#0a7d22;">Tilmelding godkendt. Du kan ikke indsende en ny tilmelding.</p>
-                <?php else : ?>
-                    <p style="color:#0a7d22;">Din tilmelding er sendt til godkendelse. Du kan ikke redigere eller indsende igen.</p>
-                <?php endif; ?>
+                <p style="color:#0a7d22;">Tilmelding godkendt. Du kan ikke indsende en ny tilmelding.</p>
                 <p><strong>Registreret antal:</strong> <?php echo esc_html((string) $adults); ?> voksne, <?php echo esc_html((string) $children); ?> børn, <?php echo esc_html((string) $dayTickets); ?> dagsbilletter.</p>
                 <p><strong>Samlet pris:</strong> <?php echo esc_html(number_format_i18n($total, 2)); ?> kr.</p>
             </div>
@@ -662,8 +658,8 @@ class SommerlejrTilmeldingPlugin
             ?>
 
             <div style="display:flex;gap:10px;">
-                <?php if ($isLocked) : ?>
-                    <button type="button" class="button button-secondary" style="opacity:.5;cursor:not-allowed;" disabled>Gem</button>
+                <?php if ($status === 'submitted') : ?>
+                    <button type="submit" name="summer_camp_action" value="edit" class="button button-secondary">Lav rettelser</button>
                 <?php else : ?>
                     <button type="submit" name="summer_camp_action" value="save" class="button button-secondary">Gem</button>
                 <?php endif; ?>
@@ -682,7 +678,7 @@ class SommerlejrTilmeldingPlugin
 
     private function process_form_submission(int $user_id, $existing)
     {
-        if ($existing && in_array((string) $existing->status, ['submitted', 'approved'], true)) {
+        if ($existing && (string) $existing->status === 'approved') {
             wp_safe_redirect(add_query_arg(['summer_camp_submitted' => 1], get_permalink()));
             exit;
         }
@@ -690,6 +686,22 @@ class SommerlejrTilmeldingPlugin
         $existing = $this->get_user_registration($user_id);
 
         $action = isset($_POST['summer_camp_action']) ? sanitize_text_field((string) $_POST['summer_camp_action']) : 'save';
+
+        if ($action === 'edit') {
+            if ($existing) {
+                global $wpdb;
+                $wpdb->update(
+                    $this->registrations_table_name(),
+                    ['status' => 'draft', 'updated_at' => current_time('mysql')],
+                    ['id' => (int) $existing->id],
+                    ['%s', '%s'],
+                    ['%d']
+                );
+            }
+
+            wp_safe_redirect(add_query_arg(['summer_camp_saved' => 1], get_permalink()));
+            exit;
+        }
 
         $adults = $this->read_form_count('adults', $existing ? (int) $existing->adults : 0);
         $children = $this->read_form_count('children', $existing ? (int) $existing->children : 0);
