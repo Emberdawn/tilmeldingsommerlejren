@@ -68,7 +68,7 @@ class SommerlejrTilmeldingPlugin
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             PRIMARY KEY  (id),
-            KEY user_id (user_id),
+            UNIQUE KEY user_id (user_id),
             KEY status (status)
         ) {$charset};";
 
@@ -435,7 +435,7 @@ class SommerlejrTilmeldingPlugin
         ');
     }
 
-    private function get_user_latest_registration(int $user_id)
+    private function get_user_registration(int $user_id)
     {
         global $wpdb;
 
@@ -443,7 +443,7 @@ class SommerlejrTilmeldingPlugin
 
         return $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM {$table} WHERE user_id = %d LIMIT 1",
                 $user_id
             )
         );
@@ -541,7 +541,7 @@ class SommerlejrTilmeldingPlugin
         }
 
         $user_id = get_current_user_id();
-        $registration = $this->get_user_latest_registration($user_id);
+        $registration = $this->get_user_registration($user_id);
 
         if (isset($_POST['summer_camp_action']) && check_admin_referer(self::NONCE_ACTION)) {
             $registration = $this->process_form_submission($user_id, $registration);
@@ -670,6 +670,8 @@ class SommerlejrTilmeldingPlugin
             wp_safe_redirect(add_query_arg(['summer_camp_submitted' => 1], get_permalink()));
             exit;
         }
+
+        $existing = $this->get_user_registration($user_id);
 
         $action = sanitize_text_field((string) $_POST['summer_camp_action']);
         $adults = isset($_POST['adults']) ? min(99, max(0, (int) $_POST['adults'])) : 0;
