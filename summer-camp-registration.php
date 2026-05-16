@@ -31,6 +31,7 @@ class SommerlejrTilmeldingPlugin
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('admin_post_summer_camp_approve_registration', [$this, 'handle_approve_registration']);
         add_action('admin_post_summer_camp_set_pending_registration', [$this, 'handle_set_pending_registration']);
+        add_action('admin_post_summer_camp_delete_registration', [$this, 'handle_delete_registration']);
         add_action('plugins_loaded', [$this, 'maybe_upgrade_schema']);
     }
 
@@ -1012,7 +1013,7 @@ class SommerlejrTilmeldingPlugin
 
         $rows = $this->fetch_registrations();
         echo '<div class="wrap"><h1>Alle tilmeldinger</h1>';
-        $this->render_table($rows, false);
+        $this->render_table($rows, false, true, false, true);
         echo '</div>';
     }
 
@@ -1058,7 +1059,7 @@ class SommerlejrTilmeldingPlugin
         return $wpdb->get_results("SELECT r.*, u.display_name, u.user_email FROM {$table} r LEFT JOIN {$users} u ON r.user_id = u.ID ORDER BY r.updated_at DESC");
     }
 
-    private function render_table(array $rows, bool $showApprove, bool $showIdAndStatus = true, bool $showSetPending = false): void
+    private function render_table(array $rows, bool $showApprove, bool $showIdAndStatus = true, bool $showSetPending = false, bool $showDelete = false): void
     {
         echo '<table class="widefat striped"><thead><tr>';
 
@@ -1073,14 +1074,14 @@ class SommerlejrTilmeldingPlugin
         }
 
         echo '<th>Screenshot</th>';
-        if ($showApprove || $showSetPending) {
+        if ($showApprove || $showSetPending || $showDelete) {
             echo '<th>Handling</th>';
         }
         echo '</tr></thead><tbody>';
 
         if (empty($rows)) {
             $baseColumns = $showIdAndStatus ? 9 : 7;
-            $colspan = $baseColumns + (($showApprove || $showSetPending) ? 1 : 0);
+            $colspan = $baseColumns + (($showApprove || $showSetPending || $showDelete) ? 1 : 0);
             echo '<tr><td colspan="' . (int) $colspan . '">Ingen tilmeldinger fundet.</td></tr>';
         }
 
@@ -1119,7 +1120,7 @@ class SommerlejrTilmeldingPlugin
                 echo '<td>Ikke uploadet</td>';
             }
 
-            if ($showApprove || $showSetPending) {
+            if ($showApprove || $showSetPending || $showDelete) {
                 echo '<td>';
 
                 if ($showApprove) {
@@ -1137,6 +1138,15 @@ class SommerlejrTilmeldingPlugin
                     echo '<input type="hidden" name="registration_id" value="' . (int) $row->id . '">';
                     wp_nonce_field('summer_camp_set_pending_' . (int) $row->id);
                     echo '<button class="button button-secondary">Sæt afventende</button>';
+                    echo '</form>';
+                }
+
+                if ($showDelete) {
+                    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" onsubmit="return confirm(\'Er du sikker på, at du vil slette denne tilmelding?\');">';
+                    echo '<input type="hidden" name="action" value="summer_camp_delete_registration">';
+                    echo '<input type="hidden" name="registration_id" value="' . (int) $row->id . '">';
+                    wp_nonce_field('summer_camp_delete_' . (int) $row->id);
+                    echo '<button class="button button-link-delete">Slet</button>';
                     echo '</form>';
                 }
 
@@ -1235,6 +1245,26 @@ class SommerlejrTilmeldingPlugin
         }
 
         $redirectUrl = isset($_POST['_wp_http_referer']) ? wp_unslash((string) $_POST['_wp_http_referer']) : admin_url('admin.php?page=summer-camp-approved');
+        wp_safe_redirect($redirectUrl);
+        exit;
+    }
+
+    public function handle_delete_registration(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Ingen adgang.');
+        }
+
+        $registrationId = isset($_POST['registration_id']) ? (int) $_POST['registration_id'] : 0;
+        check_admin_referer('summer_camp_delete_' . $registrationId);
+
+        if ($registrationId > 0) {
+            global $wpdb;
+            $table = $this->registrations_table_name();
+            $wpdb->delete($table, ['id' => $registrationId], ['%d']);
+        }
+
+        $redirectUrl = isset($_POST['_wp_http_referer']) ? wp_unslash((string) $_POST['_wp_http_referer']) : admin_url('admin.php?page=summer-camp-all');
         wp_safe_redirect($redirectUrl);
         exit;
     }
