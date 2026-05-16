@@ -522,7 +522,7 @@ class SommerlejrTilmeldingPlugin
             <?php if (isset($_GET['summer_camp_approved'])) : ?>
                 <div class="notice notice-success"><p>Tilmelding godkendt.</p></div>
             <?php endif; ?>
-            <?php $this->render_table($rows, true); ?>
+            <?php $this->render_table($rows, true, false); ?>
         </div>
         <?php
 
@@ -1057,17 +1057,29 @@ class SommerlejrTilmeldingPlugin
         return $wpdb->get_results("SELECT r.*, u.display_name, u.user_email FROM {$table} r LEFT JOIN {$users} u ON r.user_id = u.ID ORDER BY r.updated_at DESC");
     }
 
-    private function render_table(array $rows, bool $showApprove): void
+    private function render_table(array $rows, bool $showApprove, bool $showIdAndStatus = true): void
     {
         echo '<table class="widefat striped"><thead><tr>';
-        echo '<th>ID</th><th>Bruger</th><th>Email</th><th>Voksne</th><th>Børn</th><th>Dagsbilletter</th><th>Pris</th><th>Status</th><th>Screenshot</th>';
+
+        if ($showIdAndStatus) {
+            echo '<th>ID</th>';
+        }
+
+        echo '<th>Bruger</th><th>Email</th><th>Voksne</th><th>Børn</th><th>Dagsbilletter</th><th>Pris</th>';
+
+        if ($showIdAndStatus) {
+            echo '<th>Status</th>';
+        }
+
+        echo '<th>Screenshot</th>';
         if ($showApprove) {
             echo '<th>Handling</th>';
         }
         echo '</tr></thead><tbody>';
 
         if (empty($rows)) {
-            $colspan = $showApprove ? 10 : 9;
+            $baseColumns = $showIdAndStatus ? 9 : 7;
+            $colspan = $baseColumns + ($showApprove ? 1 : 0);
             echo '<tr><td colspan="' . (int) $colspan . '">Ingen tilmeldinger fundet.</td></tr>';
         }
 
@@ -1081,14 +1093,20 @@ class SommerlejrTilmeldingPlugin
             }
 
             echo '<tr>';
-            echo '<td>' . (int) $row->id . '</td>';
+
+            if ($showIdAndStatus) {
+                echo '<td>' . (int) $row->id . '</td>';
+            }
             echo '<td>' . esc_html((string) $row->display_name) . '</td>';
             echo '<td>' . esc_html((string) $row->user_email) . '</td>';
             echo '<td>' . (int) $row->adults . '</td>';
             echo '<td>' . (int) $row->children . '</td>';
             echo '<td>' . (int) $row->day_tickets . '</td>';
             echo '<td>' . esc_html(number_format_i18n((float) $row->total_price, 2)) . ' kr.</td>';
-            echo '<td>' . esc_html((string) $row->status) . '</td>';
+
+            if ($showIdAndStatus) {
+                echo '<td>' . esc_html((string) $row->status) . '</td>';
+            }
 
             if ($proof_url) {
                 if ($is_image && $proof_thumb) {
