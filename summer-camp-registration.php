@@ -812,9 +812,17 @@ class SommerlejrTilmeldingPlugin
             $message = (string) $emails['approved_message'];
         }
 
+        $registration = $this->get_user_registration($userId);
+        $adults = $registration ? (int) $registration->adults : 0;
+        $children = $registration ? (int) $registration->children : 0;
+        $dayTickets = $registration ? (int) $registration->day_tickets : 0;
+
         $replacements = [
             '{display_name}' => (string) $user->display_name,
             '{email}' => (string) $user->user_email,
+            '{adults}' => (string) $adults,
+            '{children}' => (string) $children,
+            '{day_tickets}' => (string) $dayTickets,
         ];
         $subject = strtr($subject, $replacements);
         $message = strtr($message, $replacements);
@@ -939,7 +947,7 @@ class SommerlejrTilmeldingPlugin
             <?php if (isset($_GET['saved'])) : ?>
                 <div class="notice notice-success"><p>Mail skabeloner gemt.</p></div>
             <?php endif; ?>
-            <p>Du kan bruge pladsholdere: <code>{display_name}</code> og <code>{email}</code>.</p>
+            <p>Du kan bruge pladsholdere: <code>{display_name}</code>, <code>{email}</code>, <code>{adults}</code>, <code>{children}</code> og <code>{day_tickets}</code>.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('summer_camp_save_emails'); ?>
                 <input type="hidden" name="action" value="summer_camp_save_emails">
