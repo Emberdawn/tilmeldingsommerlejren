@@ -124,6 +124,30 @@ class SommerlejrTilmeldingPlugin
         return wp_parse_args($emails, $defaults);
     }
 
+    private function sanitize_email_template(string $value): string
+    {
+        $allowedTags = [
+            'a' => [
+                'href' => [],
+                'title' => [],
+                'target' => [],
+                'rel' => [],
+            ],
+            'br' => [],
+            'em' => [],
+            'strong' => [],
+            'u' => [],
+            'p' => ['style' => []],
+            'span' => ['style' => []],
+            'div' => ['style' => []],
+            'ul' => [],
+            'ol' => [],
+            'li' => [],
+        ];
+
+        return wp_kses($value, $allowedTags);
+    }
+
     public function enqueue_assets(): void
     {
         if (!is_user_logged_in()) {
@@ -843,7 +867,7 @@ class SommerlejrTilmeldingPlugin
         $senderName = isset($emails['sender_name']) ? sanitize_text_field((string) $emails['sender_name']) : '';
         $senderEmail = isset($emails['sender_email']) ? sanitize_email((string) $emails['sender_email']) : '';
 
-        $headers = [];
+        $headers = ['Content-Type: text/html; charset=UTF-8'];
         if ($senderName !== '' && is_email($senderEmail)) {
             $headers[] = sprintf('From: %s <%s>', $senderName, $senderEmail);
         } elseif (is_email($senderEmail)) {
@@ -851,7 +875,7 @@ class SommerlejrTilmeldingPlugin
         }
 
         if ($subject !== '' && $message !== '') {
-            wp_mail($user->user_email, $subject, $message, $headers);
+            wp_mail($user->user_email, $subject, wpautop($message), $headers);
         }
     }
     public function register_admin_menus(): void
@@ -980,7 +1004,22 @@ class SommerlejrTilmeldingPlugin
                     </tr>
                     <tr>
                         <th><label for="submitted_message">Besked: Sendt til godkendelse</label></th>
-                        <td><textarea name="submitted_message" class="large-text" rows="8"><?php echo esc_textarea((string) $emails['submitted_message']); ?></textarea></td>
+                        <td>
+                            <?php
+                            wp_editor(
+                                (string) $emails['submitted_message'],
+                                'submitted_message_editor',
+                                [
+                                    'textarea_name' => 'submitted_message',
+                                    'textarea_rows' => 8,
+                                    'media_buttons' => false,
+                                    'tinymce' => [
+                                        'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,fontselect,fontsizeselect,removeformat,undo,redo',
+                                    ],
+                                ]
+                            );
+                            ?>
+                        </td>
                     </tr>
                     <tr>
                         <th><label for="approved_subject">Emne: Godkendt</label></th>
@@ -988,7 +1027,22 @@ class SommerlejrTilmeldingPlugin
                     </tr>
                     <tr>
                         <th><label for="approved_message">Besked: Godkendt</label></th>
-                        <td><textarea name="approved_message" class="large-text" rows="8"><?php echo esc_textarea((string) $emails['approved_message']); ?></textarea></td>
+                        <td>
+                            <?php
+                            wp_editor(
+                                (string) $emails['approved_message'],
+                                'approved_message_editor',
+                                [
+                                    'textarea_name' => 'approved_message',
+                                    'textarea_rows' => 8,
+                                    'media_buttons' => false,
+                                    'tinymce' => [
+                                        'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,fontselect,fontsizeselect,removeformat,undo,redo',
+                                    ],
+                                ]
+                            );
+                            ?>
+                        </td>
                     </tr>
                 </table>
                 <?php submit_button('Gem mail skabeloner'); ?>
@@ -1019,7 +1073,11 @@ class SommerlejrTilmeldingPlugin
                 continue;
             }
 
-            $emails[$key] = sanitize_textarea_field($value);
+            if (str_ends_with($key, '_message')) {
+                $emails[$key] = $this->sanitize_email_template($value);
+            } else {
+                $emails[$key] = sanitize_text_field($value);
+            }
         }
 
         update_option(self::EMAIL_OPTION, $emails);
