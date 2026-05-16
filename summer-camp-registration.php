@@ -816,6 +816,7 @@ class SommerlejrTilmeldingPlugin
         $adults = $registration ? (int) $registration->adults : 0;
         $children = $registration ? (int) $registration->children : 0;
         $dayTickets = $registration ? (int) $registration->day_tickets : 0;
+        $totalPrice = $registration ? (float) $registration->total_price : 0.0;
 
         $replacements = [
             '{display_name}' => (string) $user->display_name,
@@ -823,6 +824,7 @@ class SommerlejrTilmeldingPlugin
             '{adults}' => (string) $adults,
             '{children}' => (string) $children,
             '{day_tickets}' => (string) $dayTickets,
+            '{total_price}' => (string) number_format_i18n($totalPrice, 2),
         ];
         $subject = strtr($subject, $replacements);
         $message = strtr($message, $replacements);
@@ -947,7 +949,7 @@ class SommerlejrTilmeldingPlugin
             <?php if (isset($_GET['saved'])) : ?>
                 <div class="notice notice-success"><p>Mail skabeloner gemt.</p></div>
             <?php endif; ?>
-            <p>Du kan bruge pladsholdere: <code>{display_name}</code>, <code>{email}</code>, <code>{adults}</code>, <code>{children}</code> og <code>{day_tickets}</code>.</p>
+            <p>Du kan bruge pladsholdere: <code>{display_name}</code>, <code>{email}</code>, <code>{adults}</code>, <code>{children}</code>, <code>{day_tickets}</code> og <code>{total_price}</code>.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('summer_camp_save_emails'); ?>
                 <input type="hidden" name="action" value="summer_camp_save_emails">
