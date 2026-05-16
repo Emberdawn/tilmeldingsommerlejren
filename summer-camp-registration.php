@@ -569,7 +569,7 @@ class SommerlejrTilmeldingPlugin
         $total = $this->calculate_total($adults, $children, $dayTickets);
         $prices = $this->get_prices();
         $status = $registration ? $registration->status : 'draft';
-        $isLocked = $status === 'approved';
+        $isLocked = in_array($status, ['submitted', 'approved'], true);
 
         if ($status === 'approved') {
             ob_start();
