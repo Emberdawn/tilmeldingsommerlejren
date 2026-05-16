@@ -702,7 +702,6 @@ class SommerlejrTilmeldingPlugin
         $table = $this->registrations_table_name();
 
         $data = [
-            'user_id' => $user_id,
             'adults' => $adults,
             'children' => $children,
             'day_tickets' => $dayTickets,
@@ -713,25 +712,33 @@ class SommerlejrTilmeldingPlugin
             'updated_at' => current_time('mysql'),
         ];
 
-        if ($status === 'submitted') {
-            $data['submitted_at'] = current_time('mysql');
-        }
-
         if ($existing) {
+            if ($status === 'submitted') {
+                $data['submitted_at'] = current_time('mysql');
+            }
+
             $wpdb->update(
                 $table,
                 $data,
                 ['id' => (int) $existing->id],
-                ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s'],
+                $status === 'submitted'
+                    ? ['%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
+                    : ['%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s'],
                 ['%d']
             );
             $registration_id = (int) $existing->id;
         } else {
+            $data['user_id'] = $user_id;
             $data['created_at'] = current_time('mysql');
+            if ($status === 'submitted') {
+                $data['submitted_at'] = current_time('mysql');
+            }
             $wpdb->insert(
                 $table,
                 $data,
-                ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
+                $status === 'submitted'
+                    ? ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s', '%s']
+                    : ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
             );
             $registration_id = (int) $wpdb->insert_id;
         }
