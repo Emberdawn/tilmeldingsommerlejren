@@ -441,17 +441,6 @@ class SommerlejrTilmeldingPlugin
 
         $table = $this->registrations_table_name();
 
-        $lockedRegistration = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE user_id = %d AND status IN ('submitted', 'approved') ORDER BY id DESC LIMIT 1",
-                $user_id
-            )
-        );
-
-        if ($lockedRegistration) {
-            return $lockedRegistration;
-        }
-
         return $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT * FROM {$table} WHERE user_id = %d ORDER BY id DESC LIMIT 1",
