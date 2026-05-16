@@ -458,6 +458,20 @@ class SommerlejrTilmeldingPlugin
             + ($dayTickets * (float) $prices['day_ticket']);
     }
 
+    private function read_form_count(string $field, int $fallback = 0): int
+    {
+        if (!array_key_exists($field, $_POST)) {
+            return min(99, max(0, $fallback));
+        }
+
+        $value = wp_unslash((string) $_POST[$field]);
+        if ($value === '') {
+            return min(99, max(0, $fallback));
+        }
+
+        return min(99, max(0, (int) $value));
+    }
+
 
     public function render_stats_widget_shortcode(): string
     {
@@ -673,10 +687,11 @@ class SommerlejrTilmeldingPlugin
 
         $existing = $this->get_user_registration($user_id);
 
-        $action = sanitize_text_field((string) $_POST['summer_camp_action']);
-        $adults = isset($_POST['adults']) ? min(99, max(0, (int) $_POST['adults'])) : 0;
-        $children = isset($_POST['children']) ? min(99, max(0, (int) $_POST['children'])) : 0;
-        $dayTickets = isset($_POST['day_tickets']) ? min(99, max(0, (int) $_POST['day_tickets'])) : 0;
+        $action = isset($_POST['summer_camp_action']) ? sanitize_text_field((string) $_POST['summer_camp_action']) : 'save';
+
+        $adults = $this->read_form_count('adults', $existing ? (int) $existing->adults : 0);
+        $children = $this->read_form_count('children', $existing ? (int) $existing->children : 0);
+        $dayTickets = $this->read_form_count('day_tickets', $existing ? (int) $existing->day_tickets : 0);
 
         $screenshotId = $existing ? (int) $existing->transfer_screenshot_id : 0;
         if (!empty($_FILES['transfer_screenshot']['name'])) {
@@ -686,7 +701,8 @@ class SommerlejrTilmeldingPlugin
             }
         }
 
-        $status = $action === 'submit' ? 'submitted' : 'draft';
+        $canSubmit = ($adults + $children + $dayTickets) > 0 && $screenshotId > 0;
+        $status = ($action === 'submit' && $canSubmit) ? 'submitted' : 'draft';
         $total = $this->calculate_total($adults, $children, $dayTickets);
 
         global $wpdb;
