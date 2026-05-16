@@ -30,6 +30,7 @@ class SommerlejrTilmeldingPlugin
         add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('admin_post_summer_camp_approve_registration', [$this, 'handle_approve_registration']);
+        add_action('admin_post_summer_camp_set_pending_registration', [$this, 'handle_set_pending_registration']);
         add_action('plugins_loaded', [$this, 'maybe_upgrade_schema']);
     }
 
@@ -541,7 +542,7 @@ class SommerlejrTilmeldingPlugin
         ?>
         <div class="summer-camp-approved-shortcode">
             <h2>Godkendte tilmeldinger</h2>
-            <?php $this->render_table($rows, false); ?>
+            <?php $this->render_table($rows, false, false, true); ?>
         </div>
         <?php
 
@@ -1057,7 +1058,7 @@ class SommerlejrTilmeldingPlugin
         return $wpdb->get_results("SELECT r.*, u.display_name, u.user_email FROM {$table} r LEFT JOIN {$users} u ON r.user_id = u.ID ORDER BY r.updated_at DESC");
     }
 
-    private function render_table(array $rows, bool $showApprove, bool $showIdAndStatus = true): void
+    private function render_table(array $rows, bool $showApprove, bool $showIdAndStatus = true, bool $showSetPending = false): void
     {
         echo '<table class="widefat striped"><thead><tr>';
 
@@ -1072,14 +1073,14 @@ class SommerlejrTilmeldingPlugin
         }
 
         echo '<th>Screenshot</th>';
-        if ($showApprove) {
+        if ($showApprove || $showSetPending) {
             echo '<th>Handling</th>';
         }
         echo '</tr></thead><tbody>';
 
         if (empty($rows)) {
             $baseColumns = $showIdAndStatus ? 9 : 7;
-            $colspan = $baseColumns + ($showApprove ? 1 : 0);
+            $colspan = $baseColumns + (($showApprove || $showSetPending) ? 1 : 0);
             echo '<tr><td colspan="' . (int) $colspan . '">Ingen tilmeldinger fundet.</td></tr>';
         }
 
@@ -1118,14 +1119,27 @@ class SommerlejrTilmeldingPlugin
                 echo '<td>Ikke uploadet</td>';
             }
 
-            if ($showApprove) {
+            if ($showApprove || $showSetPending) {
                 echo '<td>';
-                echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
-                echo '<input type="hidden" name="action" value="summer_camp_approve_registration">';
-                echo '<input type="hidden" name="registration_id" value="' . (int) $row->id . '">';
-                wp_nonce_field('summer_camp_approve_' . (int) $row->id);
-                echo '<button class="button button-primary">Godkend</button>';
-                echo '</form>';
+
+                if ($showApprove) {
+                    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+                    echo '<input type="hidden" name="action" value="summer_camp_approve_registration">';
+                    echo '<input type="hidden" name="registration_id" value="' . (int) $row->id . '">';
+                    wp_nonce_field('summer_camp_approve_' . (int) $row->id);
+                    echo '<button class="button button-primary">Godkend</button>';
+                    echo '</form>';
+                }
+
+                if ($showSetPending) {
+                    echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+                    echo '<input type="hidden" name="action" value="summer_camp_set_pending_registration">';
+                    echo '<input type="hidden" name="registration_id" value="' . (int) $row->id . '">';
+                    wp_nonce_field('summer_camp_set_pending_' . (int) $row->id);
+                    echo '<button class="button button-secondary">Sæt afventende</button>';
+                    echo '</form>';
+                }
+
                 echo '</td>';
             }
 
@@ -1181,6 +1195,50 @@ class SommerlejrTilmeldingPlugin
         wp_safe_redirect($redirectUrl);
         exit;
     }
+
+    public function handle_set_pending_registration(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Ingen adgang.');
+        }
+
+        $registrationId = isset($_POST['registration_id']) ? (int) $_POST['registration_id'] : 0;
+        check_admin_referer('summer_camp_set_pending_' . $registrationId);
+
+        if ($registrationId > 0) {
+            global $wpdb;
+
+            $table = $this->registrations_table_name();
+            $userId = (int) $wpdb->get_var(
+                $wpdb->prepare("SELECT user_id FROM {$table} WHERE id = %d", $registrationId)
+            );
+
+            if ($userId > 0) {
+                $wpdb->query(
+                    $wpdb->prepare(
+                        "UPDATE {$table} SET status = %s, updated_at = %s WHERE user_id = %d AND status = %s",
+                        'submitted',
+                        current_time('mysql'),
+                        $userId,
+                        'approved'
+                    )
+                );
+            } else {
+                $wpdb->update(
+                    $table,
+                    ['status' => 'submitted', 'updated_at' => current_time('mysql')],
+                    ['id' => $registrationId],
+                    ['%s', '%s'],
+                    ['%d']
+                );
+            }
+        }
+
+        $redirectUrl = isset($_POST['_wp_http_referer']) ? wp_unslash((string) $_POST['_wp_http_referer']) : admin_url('admin.php?page=summer-camp-approved');
+        wp_safe_redirect($redirectUrl);
+        exit;
+    }
+
 }
 
 new SommerlejrTilmeldingPlugin();
