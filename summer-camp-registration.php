@@ -16,6 +16,11 @@ class SommerlejrTilmeldingPlugin
     private const PRICE_OPTION = 'summer_camp_price_settings';
     private const EMAIL_OPTION = 'summer_camp_email_settings';
     private const NONCE_ACTION = 'summer_camp_form_nonce';
+    private const CAP_VIEW_PENDING = 'view_summer_camp_pending';
+    private const CAP_VIEW_APPROVED = 'view_summer_camp_approved';
+    private const CAP_APPROVE = 'approve_summer_camp_registrations';
+    private const CAP_EDIT_STATUS = 'edit_summer_camp_registration_status';
+    private const CAP_DELETE = 'delete_summer_camp_registrations';
 
     public function __construct()
     {
@@ -79,6 +84,32 @@ class SommerlejrTilmeldingPlugin
         if (!get_option(self::PRICE_OPTION)) {
             add_option(self::PRICE_OPTION, $this->default_prices());
         }
+
+        $this->grant_default_caps();
+    }
+
+    private function grant_default_caps(): void
+    {
+        $admin = get_role('administrator');
+        if (!$admin) {
+            return;
+        }
+
+        $admin->add_cap(self::CAP_VIEW_PENDING);
+        $admin->add_cap(self::CAP_VIEW_APPROVED);
+        $admin->add_cap(self::CAP_APPROVE);
+        $admin->add_cap(self::CAP_EDIT_STATUS);
+        $admin->add_cap(self::CAP_DELETE);
+    }
+
+    private function can_view_pending(): bool
+    {
+        return current_user_can(self::CAP_VIEW_PENDING) || current_user_can('manage_options');
+    }
+
+    private function can_view_approved(): bool
+    {
+        return current_user_can(self::CAP_VIEW_APPROVED) || current_user_can('manage_options');
     }
 
     private function registrations_table_name(): string
@@ -535,7 +566,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_pending_registrations_shortcode(): string
     {
-        if (!is_user_logged_in() || !current_user_can('manage_options')) {
+        if (!is_user_logged_in() || !$this->can_view_pending()) {
             return '<p>Du har ikke adgang til at se denne side.</p>';
         }
 
@@ -557,7 +588,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_approved_registrations_shortcode(): string
     {
-        if (!is_user_logged_in() || !current_user_can('manage_options')) {
+        if (!is_user_logged_in() || !$this->can_view_approved()) {
             return '<p>Du har ikke adgang til at se denne side.</p>';
         }
 
@@ -883,7 +914,7 @@ class SommerlejrTilmeldingPlugin
         add_menu_page(
             'Sommerlejr',
             'Sommerlejr',
-            'manage_options',
+            self::CAP_VIEW_APPROVED,
             'summer-camp',
             [$this, 'render_all_registrations_page'],
             'dashicons-groups'
@@ -927,7 +958,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_prices_page(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!$this->can_view_approved()) {
             wp_die('Ingen adgang.');
         }
 
@@ -954,7 +985,7 @@ class SommerlejrTilmeldingPlugin
 
     public function handle_save_prices(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!$this->can_view_pending()) {
             wp_die('Ingen adgang.');
         }
 
@@ -974,7 +1005,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_emails_page(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(self::CAP_APPROVE) && !current_user_can('manage_options')) {
             wp_die('Ingen adgang.');
         }
 
@@ -1053,7 +1084,7 @@ class SommerlejrTilmeldingPlugin
 
     public function handle_save_emails(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(self::CAP_EDIT_STATUS) && !current_user_can('manage_options')) {
             wp_die('Ingen adgang.');
         }
 
@@ -1087,7 +1118,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_all_registrations_page(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!$this->can_view_approved()) {
             wp_die('Ingen adgang.');
         }
 
@@ -1099,7 +1130,7 @@ class SommerlejrTilmeldingPlugin
 
     public function render_pending_page(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!$this->can_view_pending()) {
             wp_die('Ingen adgang.');
         }
 
@@ -1241,7 +1272,7 @@ class SommerlejrTilmeldingPlugin
 
     public function handle_approve_registration(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(self::CAP_APPROVE) && !current_user_can('manage_options')) {
             wp_die('Ingen adgang.');
         }
 
@@ -1288,7 +1319,7 @@ class SommerlejrTilmeldingPlugin
 
     public function handle_set_pending_registration(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(self::CAP_EDIT_STATUS) && !current_user_can('manage_options')) {
             wp_die('Ingen adgang.');
         }
 
@@ -1331,7 +1362,7 @@ class SommerlejrTilmeldingPlugin
 
     public function handle_delete_registration(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can(self::CAP_DELETE) && !current_user_can('manage_options')) {
             wp_die('Ingen adgang.');
         }
 
