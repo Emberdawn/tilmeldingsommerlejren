@@ -46,8 +46,10 @@ class SommerlejrTilmeldingPlugin
 
         $table = $this->registrations_table_name();
         $dayTicketsColumn = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'day_tickets'");
+        $adultFourDayColumn = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'adult_four_day_tickets'");
+        $childFourDayColumn = $wpdb->get_var("SHOW COLUMNS FROM {$table} LIKE 'child_four_day_tickets'");
 
-        if ($dayTicketsColumn === null) {
+        if ($dayTicketsColumn === null || $adultFourDayColumn === null || $childFourDayColumn === null) {
             $this->activate();
         }
     }
@@ -67,6 +69,8 @@ class SommerlejrTilmeldingPlugin
             adults INT UNSIGNED NOT NULL DEFAULT 0,
             children INT UNSIGNED NOT NULL DEFAULT 0,
             day_tickets INT UNSIGNED NOT NULL DEFAULT 0,
+            adult_four_day_tickets INT UNSIGNED NOT NULL DEFAULT 0,
+            child_four_day_tickets INT UNSIGNED NOT NULL DEFAULT 0,
             days_count INT UNSIGNED NOT NULL DEFAULT 0,
             total_price DECIMAL(10,2) NOT NULL DEFAULT 0,
             transfer_screenshot_id BIGINT UNSIGNED NULL,
@@ -124,6 +128,8 @@ class SommerlejrTilmeldingPlugin
             'adult_full' => 1000,
             'child_full' => 700,
             'day_ticket' => 120,
+            'adult_four_day_ticket' => 200,
+            'child_four_day_ticket' => 150,
         ];
     }
 
@@ -199,6 +205,8 @@ class SommerlejrTilmeldingPlugin
                     const adultsInput = form.find("input[name=\"adults\"]");
                     const childrenInput = form.find("input[name=\"children\"]");
                     const dayTicketsInput = form.find("input[name=\"day_tickets\"]");
+                    const adultFourDayTicketsInput = form.find("input[name=\"adult_four_day_tickets\"]");
+                    const childFourDayTicketsInput = form.find("input[name=\"child_four_day_tickets\"]");
                     const totalValue = form.find(".js-total-price-value");
                     const previewWrap = form.find(".js-file-preview");
                     const previewImage = form.find(".js-file-preview-image");
@@ -255,6 +263,8 @@ class SommerlejrTilmeldingPlugin
                     const adultPrice = parseLocaleNumber(String(form.data("adult-price") || "0"));
                     const childPrice = parseLocaleNumber(String(form.data("child-price") || "0"));
                     const dayTicketPrice = parseLocaleNumber(String(form.data("day-ticket-price") || "0"));
+                    const adultFourDayTicketPrice = parseLocaleNumber(String(form.data("adult-four-day-ticket-price") || "0"));
+                    const childFourDayTicketPrice = parseLocaleNumber(String(form.data("child-four-day-ticket-price") || "0"));
 
                     function toNumber(input){
                         if (!input.length) {
@@ -284,12 +294,18 @@ class SommerlejrTilmeldingPlugin
                         const adults = toNumber(adultsInput);
                         const children = toNumber(childrenInput);
                         const dayTickets = toNumber(dayTicketsInput);
-                        const total = (adults * adultPrice) + (children * childPrice) + (dayTickets * dayTicketPrice);
+                        const adultFourDayTickets = toNumber(adultFourDayTicketsInput);
+                        const childFourDayTickets = toNumber(childFourDayTicketsInput);
+                        const total = (adults * adultPrice)
+                            + (children * childPrice)
+                            + (dayTickets * dayTicketPrice)
+                            + (adultFourDayTickets * adultFourDayTicketPrice)
+                            + (childFourDayTickets * childFourDayTicketPrice);
 
                         totalValue.text(formatTotal(total));
                     }
 
-                    const totalInputsSelector = "input[name=\"adults\"], input[name=\"children\"], input[name=\"day_tickets\"]";
+                    const totalInputsSelector = "input[name=\"adults\"], input[name=\"children\"], input[name=\"day_tickets\"], input[name=\"adult_four_day_tickets\"], input[name=\"child_four_day_tickets\"]";
 
                     form.on("input change keyup blur focusout", totalInputsSelector, updateTotalPrice);
                     $(window).on("pageshow", updateTotalPrice);
@@ -506,13 +522,15 @@ class SommerlejrTilmeldingPlugin
         );
     }
 
-    private function calculate_total(int $adults, int $children, int $dayTickets): float
+    private function calculate_total(int $adults, int $children, int $dayTickets, int $adultFourDayTickets = 0, int $childFourDayTickets = 0): float
     {
         $prices = $this->get_prices();
 
         return ($adults * (float) $prices['adult_full'])
             + ($children * (float) $prices['child_full'])
-            + ($dayTickets * (float) $prices['day_ticket']);
+            + ($dayTickets * (float) $prices['day_ticket'])
+            + ($adultFourDayTickets * (float) $prices['adult_four_day_ticket'])
+            + ($childFourDayTickets * (float) $prices['child_four_day_ticket']);
     }
 
     private function read_form_count(string $field, int $fallback = 0): int
@@ -539,7 +557,9 @@ class SommerlejrTilmeldingPlugin
             "SELECT
                 COALESCE(SUM(adults), 0) AS adults_total,
                 COALESCE(SUM(children), 0) AS children_total,
-                COALESCE(SUM(day_tickets), 0) AS day_tickets_total
+                COALESCE(SUM(day_tickets), 0) AS day_tickets_total,
+                COALESCE(SUM(adult_four_day_tickets), 0) AS adult_four_day_tickets_total,
+                COALESCE(SUM(child_four_day_tickets), 0) AS child_four_day_tickets_total
              FROM {$table}
              WHERE status IN ('submitted', 'approved')"
         );
@@ -547,6 +567,8 @@ class SommerlejrTilmeldingPlugin
         $adults = isset($stats->adults_total) ? (int) $stats->adults_total : 0;
         $children = isset($stats->children_total) ? (int) $stats->children_total : 0;
         $dayTickets = isset($stats->day_tickets_total) ? (int) $stats->day_tickets_total : 0;
+        $adultFourDayTickets = isset($stats->adult_four_day_tickets_total) ? (int) $stats->adult_four_day_tickets_total : 0;
+        $childFourDayTickets = isset($stats->child_four_day_tickets_total) ? (int) $stats->child_four_day_tickets_total : 0;
 
         ob_start();
         ?>
@@ -556,6 +578,8 @@ class SommerlejrTilmeldingPlugin
                 <li><strong>Voksne tilmeldt:</strong> <?php echo esc_html(number_format_i18n($adults)); ?></li>
                 <li><strong>Børn tilmeldt:</strong> <?php echo esc_html(number_format_i18n($children)); ?></li>
                 <li><strong>Dagsbilletter solgt:</strong> <?php echo esc_html(number_format_i18n($dayTickets)); ?></li>
+                <li><strong>4-dages billetter voksne solgt:</strong> <?php echo esc_html(number_format_i18n($adultFourDayTickets)); ?></li>
+                <li><strong>4-dages billetter b&oslash;rn solgt:</strong> <?php echo esc_html(number_format_i18n($childFourDayTickets)); ?></li>
             </ul>
         </div>
         <?php
@@ -621,7 +645,9 @@ class SommerlejrTilmeldingPlugin
         $adults = $registration ? (int) $registration->adults : 0;
         $children = $registration ? (int) $registration->children : 0;
         $dayTickets = $registration ? (int) $registration->day_tickets : 0;
-        $total = $this->calculate_total($adults, $children, $dayTickets);
+        $adultFourDayTickets = ($registration && isset($registration->adult_four_day_tickets)) ? (int) $registration->adult_four_day_tickets : 0;
+        $childFourDayTickets = ($registration && isset($registration->child_four_day_tickets)) ? (int) $registration->child_four_day_tickets : 0;
+        $total = $this->calculate_total($adults, $children, $dayTickets, $adultFourDayTickets, $childFourDayTickets);
         $prices = $this->get_prices();
         $status = $registration ? $registration->status : 'draft';
         $isLocked = in_array($status, ['submitted', 'approved'], true);
@@ -632,7 +658,7 @@ class SommerlejrTilmeldingPlugin
             <div style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;">
                 <h3>Sommerlejr tilmelding</h3>
                 <p style="color:#0a7d22;">Tilmelding godkendt. Du kan ikke indsende en ny tilmelding.</p>
-                <p><strong>Registreret antal:</strong> <?php echo esc_html((string) $adults); ?> voksne, <?php echo esc_html((string) $children); ?> børn, <?php echo esc_html((string) $dayTickets); ?> dagsbilletter.</p>
+                <p><strong>Registreret antal:</strong> <?php echo esc_html((string) $adults); ?> voksne, <?php echo esc_html((string) $children); ?> b&oslash;rn, <?php echo esc_html((string) $dayTickets); ?> dagsbilletter, <?php echo esc_html((string) $adultFourDayTickets); ?> 4-dages voksenbilletter, <?php echo esc_html((string) $childFourDayTickets); ?> 4-dages b&oslash;rnebilletter.</p>
                 <p><strong>Samlet pris:</strong> <?php echo esc_html(number_format_i18n($total, 2)); ?> kr.</p>
             </div>
             <?php
@@ -642,7 +668,7 @@ class SommerlejrTilmeldingPlugin
 
         ob_start();
         ?>
-        <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;" data-adult-price="<?php echo esc_attr((string) $prices['adult_full']); ?>" data-child-price="<?php echo esc_attr((string) $prices['child_full']); ?>" data-day-ticket-price="<?php echo esc_attr((string) $prices['day_ticket']); ?>">
+        <form method="post" enctype="multipart/form-data" class="js-summer-camp-form" style="max-width:700px;display:grid;gap:12px;padding:16px;border:1px solid #ddd;border-radius:8px;" data-adult-price="<?php echo esc_attr((string) $prices['adult_full']); ?>" data-child-price="<?php echo esc_attr((string) $prices['child_full']); ?>" data-day-ticket-price="<?php echo esc_attr((string) $prices['day_ticket']); ?>" data-adult-four-day-ticket-price="<?php echo esc_attr((string) $prices['adult_four_day_ticket']); ?>" data-child-four-day-ticket-price="<?php echo esc_attr((string) $prices['child_four_day_ticket']); ?>">
             <?php wp_nonce_field(self::NONCE_ACTION); ?>
             <h3>Sommerlejr tilmelding</h3>
 
@@ -671,6 +697,16 @@ class SommerlejrTilmeldingPlugin
             <label>
                 Dagsbillet
                 <input type="number" min="0" max="99" name="day_tickets" value="<?php echo esc_attr((string) $dayTickets); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
+            </label>
+
+            <label>
+                4-dages billet voksen (torsdag til s&oslash;ndag)
+                <input type="number" min="0" max="99" name="adult_four_day_tickets" value="<?php echo esc_attr((string) $adultFourDayTickets); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
+            </label>
+
+            <label>
+                4-dages billet barn (torsdag til s&oslash;ndag)
+                <input type="number" min="0" max="99" name="child_four_day_tickets" value="<?php echo esc_attr((string) $childFourDayTickets); ?>" required style="max-width:90px;" <?php echo $isLocked ? 'readonly' : ''; ?>>
             </label>
 
             <label>
@@ -761,6 +797,8 @@ class SommerlejrTilmeldingPlugin
         $adults = $this->read_form_count('adults', $existing ? (int) $existing->adults : 0);
         $children = $this->read_form_count('children', $existing ? (int) $existing->children : 0);
         $dayTickets = $this->read_form_count('day_tickets', $existing ? (int) $existing->day_tickets : 0);
+        $adultFourDayTickets = $this->read_form_count('adult_four_day_tickets', ($existing && isset($existing->adult_four_day_tickets)) ? (int) $existing->adult_four_day_tickets : 0);
+        $childFourDayTickets = $this->read_form_count('child_four_day_tickets', ($existing && isset($existing->child_four_day_tickets)) ? (int) $existing->child_four_day_tickets : 0);
 
         $screenshotId = $existing ? (int) $existing->transfer_screenshot_id : 0;
         if (!empty($_FILES['transfer_screenshot']['name'])) {
@@ -770,9 +808,9 @@ class SommerlejrTilmeldingPlugin
             }
         }
 
-        $canSubmit = ($adults + $children + $dayTickets) > 0 && $screenshotId > 0;
+        $canSubmit = ($adults + $children + $dayTickets + $adultFourDayTickets + $childFourDayTickets) > 0 && $screenshotId > 0;
         $status = ($action === 'submit' && $canSubmit) ? 'submitted' : 'draft';
-        $total = $this->calculate_total($adults, $children, $dayTickets);
+        $total = $this->calculate_total($adults, $children, $dayTickets, $adultFourDayTickets, $childFourDayTickets);
 
         global $wpdb;
         $table = $this->registrations_table_name();
@@ -781,6 +819,8 @@ class SommerlejrTilmeldingPlugin
             'adults' => $adults,
             'children' => $children,
             'day_tickets' => $dayTickets,
+            'adult_four_day_tickets' => $adultFourDayTickets,
+            'child_four_day_tickets' => $childFourDayTickets,
             'days_count' => 0,
             'total_price' => $total,
             'transfer_screenshot_id' => $screenshotId ?: null,
@@ -798,8 +838,8 @@ class SommerlejrTilmeldingPlugin
                 $data,
                 ['id' => (int) $existing->id],
                 $status === 'submitted'
-                    ? ['%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
-                    : ['%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s'],
+                    ? ['%d', '%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
+                    : ['%d', '%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s'],
                 ['%d']
             );
             $registration_id = (int) $existing->id;
@@ -813,8 +853,8 @@ class SommerlejrTilmeldingPlugin
                 $table,
                 $data,
                 $status === 'submitted'
-                    ? ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s', '%s']
-                    : ['%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%s']
+                    ? ['%d', '%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%d', '%s', '%s']
+                    : ['%d', '%d', '%d', '%d', '%d', '%d', '%f', '%d', '%s', '%s', '%d', '%s']
             );
             $registration_id = (int) $wpdb->insert_id;
         }
@@ -883,6 +923,8 @@ class SommerlejrTilmeldingPlugin
         $adults = $registration ? (int) $registration->adults : 0;
         $children = $registration ? (int) $registration->children : 0;
         $dayTickets = $registration ? (int) $registration->day_tickets : 0;
+        $adultFourDayTickets = ($registration && isset($registration->adult_four_day_tickets)) ? (int) $registration->adult_four_day_tickets : 0;
+        $childFourDayTickets = ($registration && isset($registration->child_four_day_tickets)) ? (int) $registration->child_four_day_tickets : 0;
         $totalPrice = $registration ? (float) $registration->total_price : 0.0;
 
         $replacements = [
@@ -891,6 +933,8 @@ class SommerlejrTilmeldingPlugin
             '{adults}' => (string) $adults,
             '{children}' => (string) $children,
             '{day_tickets}' => (string) $dayTickets,
+            '{adult_four_day_tickets}' => (string) $adultFourDayTickets,
+            '{child_four_day_tickets}' => (string) $childFourDayTickets,
             '{total_price}' => (string) number_format_i18n($totalPrice, 2),
         ];
         $subject = strtr($subject, $replacements);
@@ -976,6 +1020,8 @@ class SommerlejrTilmeldingPlugin
                     <tr><th><label for="adult_full">Voksne alle dage</label></th><td><input type="number" step="0.01" name="adult_full" value="<?php echo esc_attr((string) $prices['adult_full']); ?>"></td></tr>
                     <tr><th><label for="child_full">Børn alle dage</label></th><td><input type="number" step="0.01" name="child_full" value="<?php echo esc_attr((string) $prices['child_full']); ?>"></td></tr>
                     <tr><th><label for="day_ticket">Dagsbillet</label></th><td><input type="number" step="0.01" name="day_ticket" value="<?php echo esc_attr((string) $prices['day_ticket']); ?>"></td></tr>
+                    <tr><th><label for="adult_four_day_ticket">4-dages billet voksen</label></th><td><input type="number" step="0.01" name="adult_four_day_ticket" value="<?php echo esc_attr((string) $prices['adult_four_day_ticket']); ?>"></td></tr>
+                    <tr><th><label for="child_four_day_ticket">4-dages billet barn</label></th><td><input type="number" step="0.01" name="child_four_day_ticket" value="<?php echo esc_attr((string) $prices['child_four_day_ticket']); ?>"></td></tr>
                 </table>
                 <?php submit_button('Gem priser'); ?>
             </form>
@@ -1016,7 +1062,7 @@ class SommerlejrTilmeldingPlugin
             <?php if (isset($_GET['saved'])) : ?>
                 <div class="notice notice-success"><p>Mail skabeloner gemt.</p></div>
             <?php endif; ?>
-            <p>Du kan bruge pladsholdere: <code>{display_name}</code>, <code>{email}</code>, <code>{adults}</code>, <code>{children}</code>, <code>{day_tickets}</code> og <code>{total_price}</code>.</p>
+            <p>Du kan bruge pladsholdere: <code>{display_name}</code>, <code>{email}</code>, <code>{adults}</code>, <code>{children}</code>, <code>{day_tickets}</code>, <code>{adult_four_day_tickets}</code>, <code>{child_four_day_tickets}</code> og <code>{total_price}</code>.</p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('summer_camp_save_emails'); ?>
                 <input type="hidden" name="action" value="summer_camp_save_emails">
@@ -1178,7 +1224,7 @@ class SommerlejrTilmeldingPlugin
             echo '<th>ID</th>';
         }
 
-        echo '<th>Bruger</th><th>Email</th><th>Voksne</th><th>Børn</th><th>Dagsbilletter</th><th>Pris</th>';
+        echo '<th>Bruger</th><th>Email</th><th>Voksne</th><th>B&oslash;rn</th><th>Dagsbilletter</th><th>4-dages voksne</th><th>4-dages b&oslash;rn</th><th>Pris</th>';
 
         if ($showIdAndStatus) {
             echo '<th>Status</th>';
@@ -1191,7 +1237,7 @@ class SommerlejrTilmeldingPlugin
         echo '</tr></thead><tbody>';
 
         if (empty($rows)) {
-            $baseColumns = $showIdAndStatus ? 9 : 7;
+            $baseColumns = $showIdAndStatus ? 11 : 9;
             $colspan = $baseColumns + (($showApprove || $showSetPending || $showDelete) ? 1 : 0);
             echo '<tr><td colspan="' . (int) $colspan . '">Ingen tilmeldinger fundet.</td></tr>';
         }
@@ -1215,6 +1261,8 @@ class SommerlejrTilmeldingPlugin
             echo '<td>' . (int) $row->adults . '</td>';
             echo '<td>' . (int) $row->children . '</td>';
             echo '<td>' . (int) $row->day_tickets . '</td>';
+            echo '<td>' . (isset($row->adult_four_day_tickets) ? (int) $row->adult_four_day_tickets : 0) . '</td>';
+            echo '<td>' . (isset($row->child_four_day_tickets) ? (int) $row->child_four_day_tickets : 0) . '</td>';
             echo '<td>' . esc_html(number_format_i18n((float) $row->total_price, 2)) . ' kr.</td>';
 
             if ($showIdAndStatus) {
