@@ -3,6 +3,7 @@ Et WordPress-plugin til sommerlejr-tilmeldinger for registrerede brugere.
 
 ## Funktioner
 - Shortcode: `[summer_camp_registration]`.
+- Salgsoversigt shortcode: `[summer_camp_ticket_sales_overview]`.
 - Gemmer seneste indtastede tilmeldingsdata pr. bruger.
 - Gem-knap til kladde og automatisk visning af "Send til godkendelse" når alle krav er opfyldt.
 - Prisberegning baseret på voksne/børn og antal dage.

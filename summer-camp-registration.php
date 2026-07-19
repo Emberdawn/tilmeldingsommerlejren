@@ -27,6 +27,7 @@ class SommerlejrTilmeldingPlugin
         register_activation_hook(__FILE__, [$this, 'activate']);
         add_shortcode('summer_camp_registration', [$this, 'render_registration_shortcode']);
         add_shortcode('summer_camp_registration_stats', [$this, 'render_stats_widget_shortcode']);
+        add_shortcode('summer_camp_ticket_sales_overview', [$this, 'render_stats_widget_shortcode']);
         add_shortcode('summer_camp_pending_registrations', [$this, 'render_pending_registrations_shortcode']);
         add_shortcode('summer_camp_approved_registrations', [$this, 'render_approved_registrations_shortcode']);
         add_action('admin_menu', [$this, 'register_admin_menus']);
@@ -533,6 +534,11 @@ class SommerlejrTilmeldingPlugin
             + ($childFourDayTickets * (float) $prices['child_four_day_ticket']);
     }
 
+    private function format_price(float $amount): string
+    {
+        return number_format_i18n($amount, 2) . ' kr.';
+    }
+
     private function read_form_count(string $field, int $fallback = 0): int
     {
         if (!array_key_exists($field, $_POST)) {
@@ -559,28 +565,58 @@ class SommerlejrTilmeldingPlugin
                 COALESCE(SUM(children), 0) AS children_total,
                 COALESCE(SUM(day_tickets), 0) AS day_tickets_total,
                 COALESCE(SUM(adult_four_day_tickets), 0) AS adult_four_day_tickets_total,
-                COALESCE(SUM(child_four_day_tickets), 0) AS child_four_day_tickets_total
+                COALESCE(SUM(child_four_day_tickets), 0) AS child_four_day_tickets_total,
+                COALESCE(SUM(total_price), 0) AS sales_total
              FROM {$table}
              WHERE status IN ('submitted', 'approved')"
         );
 
+        $prices = $this->get_prices();
         $adults = isset($stats->adults_total) ? (int) $stats->adults_total : 0;
         $children = isset($stats->children_total) ? (int) $stats->children_total : 0;
         $dayTickets = isset($stats->day_tickets_total) ? (int) $stats->day_tickets_total : 0;
         $adultFourDayTickets = isset($stats->adult_four_day_tickets_total) ? (int) $stats->adult_four_day_tickets_total : 0;
         $childFourDayTickets = isset($stats->child_four_day_tickets_total) ? (int) $stats->child_four_day_tickets_total : 0;
+        $salesTotal = isset($stats->sales_total) ? (float) $stats->sales_total : 0.0;
+        $ticketRows = [
+            ['label' => 'Voksne alle dage', 'count' => $adults, 'price' => (float) $prices['adult_full']],
+            ['label' => 'B&oslash;rn alle dage', 'count' => $children, 'price' => (float) $prices['child_full']],
+            ['label' => 'Dagsbilletter', 'count' => $dayTickets, 'price' => (float) $prices['day_ticket']],
+            ['label' => '4-dages billetter voksne', 'count' => $adultFourDayTickets, 'price' => (float) $prices['adult_four_day_ticket']],
+            ['label' => '4-dages billetter b&oslash;rn', 'count' => $childFourDayTickets, 'price' => (float) $prices['child_four_day_ticket']],
+        ];
 
         ob_start();
         ?>
-        <div style="max-width:420px;padding:16px;border:1px solid #ddd;border-radius:8px;background:transparent;">
-            <h3 style="margin-top:0;">Tilmeldingsstatus</h3>
-            <ul style="margin:0;padding-left:18px;display:grid;gap:6px;">
-                <li><strong>Voksne tilmeldt:</strong> <?php echo esc_html(number_format_i18n($adults)); ?></li>
-                <li><strong>Børn tilmeldt:</strong> <?php echo esc_html(number_format_i18n($children)); ?></li>
-                <li><strong>Dagsbilletter solgt:</strong> <?php echo esc_html(number_format_i18n($dayTickets)); ?></li>
-                <li><strong>4-dages billetter voksne solgt:</strong> <?php echo esc_html(number_format_i18n($adultFourDayTickets)); ?></li>
-                <li><strong>4-dages billetter b&oslash;rn solgt:</strong> <?php echo esc_html(number_format_i18n($childFourDayTickets)); ?></li>
-            </ul>
+        <div style="max-width:760px;padding:16px;border:1px solid #ddd;border-radius:8px;background:transparent;">
+            <h3 style="margin-top:0;">Billetsalg</h3>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;border-bottom:1px solid #ddd;padding:8px 6px;">Billettype</th>
+                        <th style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px;">Solgt</th>
+                        <th style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px;">Pris</th>
+                        <th style="text-align:right;border-bottom:1px solid #ddd;padding:8px 6px;">Oms&aelig;tning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($ticketRows as $row) : ?>
+                        <?php $rowTotal = (int) $row['count'] * (float) $row['price']; ?>
+                        <tr>
+                            <td style="padding:8px 6px;border-bottom:1px solid #eee;"><?php echo wp_kses_post((string) $row['label']); ?></td>
+                            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;"><?php echo esc_html(number_format_i18n((int) $row['count'])); ?></td>
+                            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;"><?php echo esc_html($this->format_price((float) $row['price'])); ?></td>
+                            <td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;"><?php echo esc_html($this->format_price($rowTotal)); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" style="padding:10px 6px;text-align:right;">Samlet indbetalt</th>
+                        <th style="padding:10px 6px;text-align:right;"><?php echo esc_html($this->format_price($salesTotal)); ?></th>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
         <?php
 
